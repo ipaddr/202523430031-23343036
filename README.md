@@ -1,15 +1,15 @@
-# Profil Mahasiswa 💻
+# Profil Mahasiswa 
 
 ---
 
 **Nama**  
-👤 Fadhli Akbar Sahendra
+Fadhli Akbar Sahendra
 
 **NIM**  
-🆔 23343036
+23343036
 
 **Program Studi**  
-🎓 Informatika
+Informatika
 
 **Sesi**  
-🗓️ 202523430031 : INF2.62.6005
+202523430031 : INF2.62.6005
