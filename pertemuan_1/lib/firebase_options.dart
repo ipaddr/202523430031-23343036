@@ -1,12 +1,16 @@
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'dart:io' show Platform;
 
 /// Configuration untuk Firebase di berbagai platform
 /// Update konfigurasi ini dengan Firebase credentials dari Google Cloud Console
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
-    if (Platform.isWeb) {
-      return web;
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux) {
+      throw UnsupportedError(
+        'DefaultFirebaseOptions belum dikonfigurasi untuk platform ini.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -15,14 +19,6 @@ class DefaultFirebaseOptions {
         return ios;
       case TargetPlatform.macOS:
         return macos;
-      case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions belum dikonfigurasi untuk Windows.',
-        );
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions belum dikonfigurasi untuk Linux.',
-        );
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions tidak didukung untuk platform ini.',
@@ -42,34 +38,28 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD...',
-    appId: '1:...:android:...',
-    messagingSenderId: '...',
-    projectId: '...',
-    databaseURL: 'https://....firebasedatabase.app',
-    storageBucket: '....appspot.com',
+    apiKey: 'AIzaSyBs8vIVfukeXGcyg2UXtqAprg7ltmj1Pls',
+    appId: '1:121447373132:android:daf380ce5d78bf638bd7e9',
+    messagingSenderId: '121447373132',
+    projectId: 'mobileprogramminglanjut',
+    storageBucket: 'mobileprogramminglanjut.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD...',
-    appId: '1:...:ios:...',
-    messagingSenderId: '...',
-    projectId: '...',
-    databaseURL: 'https://....firebasedatabase.app',
-    storageBucket: '....appspot.com',
+    apiKey: 'AIzaSyA20x0RKnlcRxN-0SZzN7Vc_OGcFZupJrY',
+    appId: '1:121447373132:ios:e6bb403856dcf06f8bd7e9',
+    messagingSenderId: '121447373132',
+    projectId: 'mobileprogramminglanjut',
+    storageBucket: 'mobileprogramminglanjut.firebasestorage.app',
     iosBundleId: 'com.example.pertemuan1',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyD...',
-    appId: '1:...:ios:...',
-    messagingSenderId: '...',
-    projectId: '...',
-    databaseURL: 'https://....firebasedatabase.app',
-    storageBucket: '....appspot.com',
-    iosBundleId: 'com.example.pertemuan1.RunnerTests',
+    apiKey: 'AIzaSyA20x0RKnlcRxN-0SZzN7Vc_OGcFZupJrY',
+    appId: '1:121447373132:ios:e6bb403856dcf06f8bd7e9',
+    messagingSenderId: '121447373132',
+    projectId: 'mobileprogramminglanjut',
+    storageBucket: 'mobileprogramminglanjut.firebasestorage.app',
+    iosBundleId: 'com.example.pertemuan1',
   );
 }
-
-// Import untuk defaultTargetPlatform
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;

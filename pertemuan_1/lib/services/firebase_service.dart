@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -26,11 +26,8 @@ class FirebaseService {
     required String fullName,
   }) async {
     try {
-      final UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       // Save user data to Firestore
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -54,11 +51,8 @@ class FirebaseService {
     required String password,
   }) async {
     try {
-      final UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .signInWithEmailAndPassword(email: email, password: password);
       return userCredential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -70,8 +64,10 @@ class FirebaseService {
   // Get user data from Firestore
   Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {
-      final DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
+      final DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
       return doc.data() as Map<String, dynamic>?;
     } catch (e) {
       throw 'Gagal mengambil data pengguna: $e';
@@ -87,7 +83,7 @@ class FirebaseService {
       final uid = _auth.currentUser!.uid;
       await _firestore.collection('users').doc(uid).update({
         'fullName': fullName,
-        if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+        if (profileImageUrl case final url?) 'profileImageUrl': url,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
