@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.red.withOpacity(0.1),
+                              color: Colors.red.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -347,7 +347,9 @@ class _LoginScreenState extends State<LoginScreen>
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      top: BorderSide(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
                     ),
                   ),
                   child: Column(
@@ -380,12 +382,12 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                             decoration: BoxDecoration(
                               color: _isHoveringRegisterLink
-                                  ? Colors.deepPurple.withOpacity(0.1)
+                                  ? Colors.deepPurple.withValues(alpha: 0.1)
                                   : Colors.transparent,
                               border: Border.all(
                                 color: _isHoveringRegisterLink
                                     ? Colors.deepPurple
-                                    : Colors.deepPurple.withOpacity(0.5),
+                                    : Colors.deepPurple.withValues(alpha: 0.5),
                                 width: _isHoveringRegisterLink ? 2 : 1.5,
                               ),
                               borderRadius: BorderRadius.circular(20),

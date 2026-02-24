@@ -82,7 +82,7 @@ class _EmailVerificationSuccessScreenState
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -115,7 +115,7 @@ class _EmailVerificationSuccessScreenState
                       child: Text(
                         'Selamat! Email Anda telah berhasil diverifikasi. Anda sekarang dapat mengakses semua fitur aplikasi.',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -128,10 +128,10 @@ class _EmailVerificationSuccessScreenState
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                         ),
@@ -157,7 +157,7 @@ class _EmailVerificationSuccessScreenState
                               '${widget.user.email}\n✓ Email Terverifikasi',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Colors.white.withOpacity(0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                   ),
                               textAlign: TextAlign.center,
                             ),
@@ -214,7 +214,7 @@ class _EmailVerificationSuccessScreenState
                           'Pengalihan otomatis dalam 3 detik...',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 decoration: TextDecoration.underline,
                               ),
                         ),

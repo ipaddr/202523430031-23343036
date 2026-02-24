@@ -113,38 +113,47 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     );
   }
 
+  void _showUnsavedChangesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Simpan Perubahan?'),
+        content: const Text('Ada perubahan yang belum disimpan.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('Jangan Simpan'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _saveNote();
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_isModified) {
-          return await showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Simpan Perubahan?'),
-                  content: const Text('Ada perubahan yang belum disimpan.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Jangan Simpan'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Batal'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context, false);
-                        await _saveNote();
-                      },
-                      child: const Text('Simpan'),
-                    ),
-                  ],
-                ),
-              ) ??
-              false;
+    return PopScope(
+      canPop: !_isModified,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!_isModified) {
+          Navigator.pop(context);
+          return;
         }
-        return true;
+        _showUnsavedChangesDialog();
       },
       child: Scaffold(
         appBar: AppBar(

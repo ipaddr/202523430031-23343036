@@ -94,7 +94,7 @@ class _NoteOperationSuccessScreenState extends State<NoteOperationSuccessScreen>
                         width: 90,
                         height: 90,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(widget.icon, color: Colors.white, size: 50),
@@ -123,7 +123,7 @@ class _NoteOperationSuccessScreenState extends State<NoteOperationSuccessScreen>
                       child: Text(
                         widget.message,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -177,7 +177,7 @@ class _NoteOperationSuccessScreenState extends State<NoteOperationSuccessScreen>
                           'Pengalihan otomatis dalam 2 detik...',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 decoration: TextDecoration.underline,
                               ),
                         ),

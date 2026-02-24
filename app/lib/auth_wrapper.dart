@@ -4,6 +4,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/register_success_screen.dart';
 import 'screens/email_verification_screen.dart';
+import 'screens/confirming_identity_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/firebase_service.dart';
 
@@ -17,13 +18,33 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isShowingLogin = true;
   bool _isShowingRegisterSuccess = false;
+  bool _isConfirmingIdentity = false;
   User? _newlyRegisteredUser;
+  User? _userToConfirm;
 
   @override
   Widget build(BuildContext context) {
     // Show register success screen if user just registered
     if (_isShowingRegisterSuccess && _newlyRegisteredUser != null) {
       return RegisterSuccessScreen(user: _newlyRegisteredUser!);
+    }
+
+    // Show confirming identity screen if needed
+    if (_isConfirmingIdentity && _userToConfirm != null) {
+      return ConfirmingIdentityScreen(
+        user: _userToConfirm!,
+        onIdentityConfirmed: () {
+          setState(() {
+            _isConfirmingIdentity = false;
+          });
+        },
+        onFailed: () {
+          setState(() {
+            _isConfirmingIdentity = false;
+            _isShowingLogin = true;
+          });
+        },
+      );
     }
 
     return StreamBuilder<User?>(
@@ -57,15 +78,34 @@ class _AuthWrapperState extends State<AuthWrapper> {
             );
           }
 
-          // Email is verified, show main screen
-          return MainScreen(
-            user: user,
-            onLogout: () {
+          // Email is verified, confirm identity before accessing main screen
+          if (!_isConfirmingIdentity && _userToConfirm == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
               setState(() {
-                _isShowingLogin = true;
-                _isShowingRegisterSuccess = false;
+                _isConfirmingIdentity = true;
+                _userToConfirm = user;
               });
-            },
+            });
+          }
+
+          // Show main screen only if identity is confirmed and not confirming
+          if (!_isConfirmingIdentity && _userToConfirm != null) {
+            return MainScreen(
+              user: user,
+              onLogout: () {
+                setState(() {
+                  _isShowingLogin = true;
+                  _isShowingRegisterSuccess = false;
+                  _isConfirmingIdentity = false;
+                  _userToConfirm = null;
+                });
+              },
+            );
+          }
+
+          // During confirmation process, return empty scaffold
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 

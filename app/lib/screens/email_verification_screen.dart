@@ -145,7 +145,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.1),
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -181,9 +181,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.05),
+                  color: Colors.deepPurple.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
+                  border: Border.all(
+                    color: Colors.deepPurple.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Text(
                   widget.user.email ?? '',
@@ -199,9 +201,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.05),
+                  color: Colors.blue.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                 ),
                 child: Text(
                   'Klik link verifikasi di email untuk mengonfirmasi alamat email Anda. Periksa folder spam jika email tidak terlihat di inbox.',
@@ -217,8 +219,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    border: Border.all(color: Colors.red.withOpacity(0.5)),
+                    color: Colors.red.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.5),
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -247,8 +251,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    border: Border.all(color: Colors.green.withOpacity(0.5)),
+                    color: Colors.green.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.5),
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(

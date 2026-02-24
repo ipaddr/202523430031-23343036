@@ -80,7 +80,7 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -113,7 +113,7 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
                       child: Text(
                         'Selamat datang kembali, ${widget.user.displayName ?? widget.user.email?.split('@')[0] ?? 'Pengguna'}!',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -126,10 +126,10 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                         ),
@@ -155,7 +155,7 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
                               widget.user.email ?? 'pengguna@email.com',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Colors.white.withOpacity(0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                   ),
                               textAlign: TextAlign.center,
                             ),
@@ -212,7 +212,7 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
                           'Pengalihan otomatis dalam 2 detik...',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 decoration: TextDecoration.underline,
                               ),
                         ),

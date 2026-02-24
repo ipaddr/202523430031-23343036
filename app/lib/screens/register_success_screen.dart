@@ -77,7 +77,7 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen>
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -110,7 +110,7 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen>
                     child: Text(
                       'Selamat datang, ${widget.user.displayName ?? 'Pengguna'}! Akun Anda telah berhasil dibuat.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -123,10 +123,10 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen>
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                           width: 1.5,
                         ),
                       ),
@@ -152,7 +152,7 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen>
                             'Email verifikasi telah dikirim ke:\n${widget.user.email}',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
-                                  color: Colors.white.withOpacity(0.85),
+                                  color: Colors.white.withValues(alpha: 0.85),
                                 ),
                             textAlign: TextAlign.center,
                           ),
@@ -208,7 +208,7 @@ class _RegisterSuccessScreenState extends State<RegisterSuccessScreen>
                       child: Text(
                         'Lanjutkan (Pengalihan otomatis dalam 3 detik)',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           decoration: TextDecoration.underline,
                         ),
                       ),
