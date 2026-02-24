@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -26,11 +26,8 @@ class FirebaseService {
     required String fullName,
   }) async {
     try {
-      final UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       // Save user data to Firestore
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -54,11 +51,8 @@ class FirebaseService {
     required String password,
   }) async {
     try {
-      final UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .signInWithEmailAndPassword(email: email, password: password);
       return userCredential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -70,8 +64,10 @@ class FirebaseService {
   // Get user data from Firestore
   Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {
-      final DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
+      final DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
       return doc.data() as Map<String, dynamic>?;
     } catch (e) {
       throw 'Gagal mengambil data pengguna: $e';
@@ -113,6 +109,31 @@ class FirebaseService {
     } catch (e) {
       throw 'Gagal mengirim reset password: $e';
     }
+  }
+
+  // Send email verification
+  Future<void> sendEmailVerification() async {
+    try {
+      if (_auth.currentUser != null && !_auth.currentUser!.emailVerified) {
+        await _auth.currentUser!.sendEmailVerification();
+      }
+    } catch (e) {
+      throw 'Gagal mengirim email verifikasi: $e';
+    }
+  }
+
+  // Reload user to check email verification status
+  Future<void> reloadUser() async {
+    try {
+      await _auth.currentUser?.reload();
+    } catch (e) {
+      throw 'Gagal memperbarui status pengguna: $e';
+    }
+  }
+
+  // Check if email is verified
+  bool isEmailVerified() {
+    return _auth.currentUser?.emailVerified ?? false;
   }
 
   // Handle Firebase Auth Exception

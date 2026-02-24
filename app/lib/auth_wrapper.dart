@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/email_verification_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/firebase_service.dart';
 
@@ -23,16 +24,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
         // User is logged in
         if (snapshot.hasData && snapshot.data != null) {
+          final user = snapshot.data!;
+
+          // Check if email is verified
+          if (!user.emailVerified) {
+            return EmailVerificationScreen(
+              user: user,
+              onVerificationSuccess: () {
+                // Trigger rebuild by notifying listeners
+                setState(() {});
+              },
+              onLogout: () {
+                setState(() {
+                  _isShowingLogin = true;
+                });
+              },
+            );
+          }
+
+          // Email is verified, show home screen
           return HomeScreen(
-            user: snapshot.data!,
+            user: user,
             onLogout: () {
               setState(() {
                 _isShowingLogin = true;
