@@ -15,7 +15,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -23,12 +24,74 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isHoveringRegisterLink = false;
   String? _errorMessage;
+  late AnimationController _errorAnimationController;
+  late Animation<double> _errorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _errorAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _errorAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _errorAnimationController, curve: Curves.easeOut),
+    );
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _errorAnimationController.dispose();
     super.dispose();
+  }
+
+  String _parseFirebaseError(dynamic error) {
+    String errorMessage = error.toString();
+
+    // Parse Firebase error codes
+    if (errorMessage.contains('user-not-found')) {
+      return 'Email tidak terdaftar. Silakan daftar terlebih dahulu.';
+    } else if (errorMessage.contains('wrong-password')) {
+      return 'Password yang Anda masukkan salah. Coba lagi.';
+    } else if (errorMessage.contains('invalid-email')) {
+      return 'Format email tidak valid.';
+    } else if (errorMessage.contains('user-disabled')) {
+      return 'Akun Anda telah dinonaktifkan. Hubungi admin.';
+    } else if (errorMessage.contains('too-many-requests')) {
+      return 'Terlalu banyak percobaan gagal. Coba lagi nanti.';
+    } else if (errorMessage.contains('network')) {
+      return 'Koneksi internet Anda tidak stabil. Cek koneksi dan coba lagi.';
+    } else if (errorMessage.contains('operation-not-allowed')) {
+      return 'Login dengan email dan password sedang dinonaktifkan.';
+    } else {
+      return 'Login gagal: $errorMessage';
+    }
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _errorMessage = message;
+    });
+    _errorAnimationController.forward();
+
+    // Auto-dismiss after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) {
+        _dismissError();
+      }
+    });
+  }
+
+  void _dismissError() {
+    _errorAnimationController.reverse().then((_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
   }
 
   Future<void> _handleLogin() async {
@@ -52,9 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
+        final friendlyErrorMessage = _parseFirebaseError(e);
+        _showError(friendlyErrorMessage);
       }
     } finally {
       if (mounted) {
@@ -146,17 +208,88 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Error Message
+                // Error Message with Animation
                 if (_errorMessage != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red.shade800),
+                  FadeTransition(
+                    opacity: _errorAnimation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, -0.2),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _errorAnimationController,
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          border: Border.all(
+                            color: Colors.red.shade300,
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red.shade600,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Login Gagal',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red.shade700,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.red.shade600,
+                                size: 20,
+                              ),
+                              onPressed: _dismissError,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 16),
