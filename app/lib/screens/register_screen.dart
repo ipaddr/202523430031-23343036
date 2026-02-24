@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onSwitchToLogin;
@@ -113,10 +113,10 @@ class _RegisterScreenState extends State<RegisterScreen>
     });
 
     try {
-      await FirebaseService().registerWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        fullName: _fullNameController.text.trim(),
+      await AuthService().registerWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _fullNameController.text.trim(),
       );
 
       if (mounted) {

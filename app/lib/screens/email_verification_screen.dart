@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import 'email_verification_success_screen.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -21,7 +21,7 @@ class EmailVerificationScreen extends StatefulWidget {
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
   bool _isCheckingVerification = false;
   String? _successMessage;
@@ -41,7 +41,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
 
     try {
-      await _firebaseService.sendEmailVerification();
+      await _authService.sendEmailVerification();
       setState(() {
         _successMessage =
             'Email verifikasi telah dikirim ke ${widget.user.email}';
@@ -62,9 +62,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
 
     try {
-      await _firebaseService.reloadUser();
+      await _authService.reloadUser();
 
-      if (_firebaseService.isEmailVerified()) {
+      if (await _authService.isEmailVerified()) {
         setState(() {
           _isCheckingVerification = false;
           _successMessage = 'Email berhasil diverifikasi!';
@@ -103,7 +103,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   Future<void> _handleLogout() async {
     try {
-      await _firebaseService.logout();
+      await _authService.logout();
       if (mounted) {
         widget.onLogout();
       }

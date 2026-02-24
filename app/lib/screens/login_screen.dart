@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import 'login_success_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -107,9 +107,9 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      final userCredential = await FirebaseService().loginWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final userCredential = await AuthService().loginWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text,
       );
 
       if (mounted && userCredential != null) {

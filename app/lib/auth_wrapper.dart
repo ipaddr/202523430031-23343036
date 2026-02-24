@@ -6,7 +6,7 @@ import 'screens/register_success_screen.dart';
 import 'screens/email_verification_screen.dart';
 import 'screens/confirming_identity_screen.dart';
 import 'screens/main_screen.dart';
-import 'services/firebase_service.dart';
+import 'services/auth_service.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -48,7 +48,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     return StreamBuilder<User?>(
-      stream: FirebaseService().authStateChanges,
+      stream: AuthService().userStateChanges,
       builder: (context, snapshot) {
         // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
