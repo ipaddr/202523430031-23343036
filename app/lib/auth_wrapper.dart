@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/email_verification_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_screen.dart';
 import 'services/firebase_service.dart';
 
 class AuthWrapper extends StatefulWidget {
@@ -48,8 +48,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
             );
           }
 
-          // Email is verified, show home screen
-          return HomeScreen(
+          // Email is verified, show main screen
+          return MainScreen(
             user: user,
             onLogout: () {
               setState(() {

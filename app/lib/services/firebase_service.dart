@@ -136,6 +136,105 @@ class FirebaseService {
     return _auth.currentUser?.emailVerified ?? false;
   }
 
+  // === NOTES OPERATIONS ===
+
+  // Create a new note
+  Future<String> createNote({
+    required String title,
+    required String content,
+  }) async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      final docRef = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notes')
+          .add({
+            'title': title,
+            'content': content,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      return docRef.id;
+    } catch (e) {
+      throw 'Gagal membuat catatan: $e';
+    }
+  }
+
+  // Get all notes for current user
+  Stream<List<Map<String, dynamic>>> getUserNotes() {
+    try {
+      final uid = _auth.currentUser!.uid;
+      return _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notes')
+          .orderBy('updatedAt', descending: true)
+          .snapshots()
+          .map((snapshot) {
+            return snapshot.docs.map((doc) {
+              return {'id': doc.id, ...doc.data()};
+            }).toList();
+          });
+    } catch (e) {
+      throw 'Gagal mengambil catatan: $e';
+    }
+  }
+
+  // Get single note
+  Future<Map<String, dynamic>?> getNote(String noteId) async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notes')
+          .doc(noteId)
+          .get();
+      return doc.data();
+    } catch (e) {
+      throw 'Gagal mengambil catatan: $e';
+    }
+  }
+
+  // Update note
+  Future<void> updateNote({
+    required String noteId,
+    required String title,
+    required String content,
+  }) async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notes')
+          .doc(noteId)
+          .update({
+            'title': title,
+            'content': content,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+    } catch (e) {
+      throw 'Gagal mengupdate catatan: $e';
+    }
+  }
+
+  // Delete note
+  Future<void> deleteNote(String noteId) async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notes')
+          .doc(noteId)
+          .delete();
+    } catch (e) {
+      throw 'Gagal menghapus catatan: $e';
+    }
+  }
+
   // Handle Firebase Auth Exception
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
