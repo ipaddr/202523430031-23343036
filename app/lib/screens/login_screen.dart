@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
+import 'login_success_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onSwitchToRegister;
@@ -105,13 +107,13 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      await FirebaseService().loginWithEmail(
+      final userCredential = await FirebaseService().loginWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      if (mounted) {
-        widget.onLoginSuccess();
+      if (mounted && userCredential != null) {
+        _showLoginSuccessScreen(userCredential);
       }
     } catch (e) {
       if (mounted) {
@@ -125,6 +127,17 @@ class _LoginScreenState extends State<LoginScreen>
         });
       }
     }
+  }
+
+  void _showLoginSuccessScreen(UserCredential userCredential) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => LoginSuccessScreen(
+          user: userCredential.user!,
+          onContinue: widget.onLoginSuccess,
+        ),
+      ),
+    );
   }
 
   @override

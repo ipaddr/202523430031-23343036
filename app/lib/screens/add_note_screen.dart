@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
+import 'note_operation_success_screen.dart';
 
 class AddNoteScreen extends StatefulWidget {
   final User user;
@@ -62,7 +63,8 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     });
 
     try {
-      if (widget.noteId == null) {
+      final isCreating = widget.noteId == null;
+      if (isCreating) {
         // Create new note
         await FirebaseService().createNote(
           title: _titleController.text.trim(),
@@ -78,16 +80,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.noteId == null
-                  ? 'Catatan berhasil dibuat'
-                  : 'Catatan berhasil disimpan',
-            ),
-          ),
-        );
-        Navigator.pop(context);
+        _showSuccessScreen(isCreating);
       }
     } catch (e) {
       if (mounted) {
@@ -99,6 +92,25 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
+  }
+
+  void _showSuccessScreen(bool isCreating) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => NoteOperationSuccessScreen(
+          title: isCreating ? 'Catatan Dibuat!' : 'Catatan Diperbarui!',
+          message: isCreating
+              ? 'Catatan Anda berhasil disimpan dan siap untuk dilihat.'
+              : 'Perubahan catatan Anda berhasil disimpan.',
+          buttonText: 'Kembali ke Daftar',
+          icon: isCreating ? Icons.note_add : Icons.edit,
+          backgroundColor: Colors.blue,
+          onContinue: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
+import 'email_verification_success_screen.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final User user;
@@ -69,11 +70,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           _successMessage = 'Email berhasil diverifikasi!';
         });
 
-        // Wait a moment before navigating
-        await Future.delayed(const Duration(seconds: 1));
-
+        // Show success screen
+        await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
-          widget.onVerificationSuccess();
+          _showVerificationSuccessScreen();
         }
       } else {
         setState(() {
@@ -88,6 +88,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         _isCheckingVerification = false;
       });
     }
+  }
+
+  void _showVerificationSuccessScreen() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => EmailVerificationSuccessScreen(
+          user: widget.user,
+          onContinue: widget.onVerificationSuccess,
+        ),
+      ),
+    );
   }
 
   Future<void> _handleLogout() async {

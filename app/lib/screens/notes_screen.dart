@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import 'add_note_screen.dart';
+import 'note_operation_success_screen.dart';
 
 class NotesScreen extends StatefulWidget {
   final User user;
@@ -38,9 +39,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 await FirebaseService().deleteNote(noteId);
                 if (mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Catatan berhasil dihapus')),
-                  );
+                  _showDeleteSuccessScreen();
                 }
               } catch (e) {
                 if (mounted) {
@@ -54,6 +53,23 @@ class _NotesScreenState extends State<NotesScreen> {
             child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDeleteSuccessScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => NoteOperationSuccessScreen(
+          title: 'Catatan Dihapus!',
+          message: 'Catatan Anda berhasil dihapus dari daftar.',
+          buttonText: 'Kembali',
+          icon: Icons.delete_sweep,
+          backgroundColor: Colors.orange,
+          onContinue: () {
+            Navigator.of(context).pop();
+          },
+        ),
       ),
     );
   }

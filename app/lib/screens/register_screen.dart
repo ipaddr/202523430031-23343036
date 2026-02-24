@@ -15,7 +15,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -26,6 +27,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   bool _isHoveringLoginLink = false;
   String? _errorMessage;
+  late AnimationController _errorAnimationController;
+  late Animation<double> _errorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _errorAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _errorAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _errorAnimationController, curve: Curves.easeOut),
+    );
+  }
 
   @override
   void dispose() {
@@ -33,7 +48,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _errorAnimationController.dispose();
     super.dispose();
+  }
+
+  String _parseFirebaseError(dynamic error) {
+    String errorMessage = error.toString();
+
+    // Parse Firebase error codes
+    if (errorMessage.contains('email-already-in-use')) {
+      return 'Email sudah terdaftar. Gunakan email lain atau login.';
+    } else if (errorMessage.contains('weak-password')) {
+      return 'Password terlalu lemah. Gunakan kombinasi huruf, angka, dan simbol.';
+    } else if (errorMessage.contains('invalid-email')) {
+      return 'Format email tidak valid.';
+    } else if (errorMessage.contains('operation-not-allowed')) {
+      return 'Pendaftaran dengan email sedang dinonaktifkan. Hubungi admin.';
+    } else if (errorMessage.contains('too-many-requests')) {
+      return 'Terlalu banyak percobaan daftar. Coba lagi nanti.';
+    } else if (errorMessage.contains('network')) {
+      return 'Koneksi internet tidak stabil. Cek koneksi dan coba lagi.';
+    } else {
+      return 'Pendaftaran gagal: $errorMessage';
+    }
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _errorMessage = message;
+    });
+    _errorAnimationController.forward();
+
+    // Auto-dismiss after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) {
+        _dismissError();
+      }
+    });
+  }
+
+  void _dismissError() {
+    _errorAnimationController.reverse().then((_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
   }
 
   Future<void> _handleRegister() async {
@@ -42,9 +103,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() {
-        _errorMessage = 'Password tidak cocok';
-      });
+      _showError('Password tidak cocok');
       return;
     }
 
@@ -65,9 +124,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
+        final friendlyErrorMessage = _parseFirebaseError(e);
+        _showError(friendlyErrorMessage);
       }
     } finally {
       if (mounted) {
@@ -215,17 +273,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Error Message
+                // Error Message with Animation
                 if (_errorMessage != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red.shade800),
+                  FadeTransition(
+                    opacity: _errorAnimation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, -0.2),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _errorAnimationController,
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          border: Border.all(
+                            color: Colors.red.shade300,
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red.shade600,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Pendaftaran Gagal',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red.shade700,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.red.shade600,
+                                size: 20,
+                              ),
+                              onPressed: _dismissError,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 16),

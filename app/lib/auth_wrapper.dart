@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/register_success_screen.dart';
 import 'screens/email_verification_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/firebase_service.dart';
@@ -15,9 +16,16 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isShowingLogin = true;
+  bool _isShowingRegisterSuccess = false;
+  User? _newlyRegisteredUser;
 
   @override
   Widget build(BuildContext context) {
+    // Show register success screen if user just registered
+    if (_isShowingRegisterSuccess && _newlyRegisteredUser != null) {
+      return RegisterSuccessScreen(user: _newlyRegisteredUser!);
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseService().authStateChanges,
       builder: (context, snapshot) {
@@ -43,6 +51,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               onLogout: () {
                 setState(() {
                   _isShowingLogin = true;
+                  _isShowingRegisterSuccess = false;
                 });
               },
             );
@@ -54,6 +63,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             onLogout: () {
               setState(() {
                 _isShowingLogin = true;
+                _isShowingRegisterSuccess = false;
               });
             },
           );
@@ -69,6 +79,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
             },
             onLoginSuccess: () {
               // No need to do anything here, StreamBuilder will handle the state change
+              setState(() {
+                _isShowingRegisterSuccess = false;
+              });
             },
           );
         } else {
@@ -79,7 +92,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
               });
             },
             onRegisterSuccess: () {
-              // No need to do anything here, StreamBuilder will handle the state change
+              // Get current user and show success screen
+              final currentUser = FirebaseAuth.instance.currentUser;
+              if (currentUser != null) {
+                setState(() {
+                  _isShowingRegisterSuccess = true;
+                  _newlyRegisteredUser = currentUser;
+                });
+              }
             },
           );
         }
