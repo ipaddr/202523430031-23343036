@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isHoveringRegisterLink = false;
   String? _errorMessage;
 
   @override
@@ -79,9 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Aplikasi Saya',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                  ),
                 ),
                 const SizedBox(height: 48),
 
@@ -178,8 +179,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -192,24 +194,94 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // Switch to Register
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Belum punya akun? '),
-                    GestureDetector(
-                      onTap: widget.onSwitchToRegister,
-                      child: const Text(
-                        'Daftar di sini',
-                        style: TextStyle(
-                          color: Colors.deepPurple,
-                          fontWeight: FontWeight.bold,
+                // Switch to Register Link
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Belum punya akun?',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      MouseRegion(
+                        onEnter: (_) {
+                          setState(() {
+                            _isHoveringRegisterLink = true;
+                          });
+                        },
+                        onExit: (_) {
+                          setState(() {
+                            _isHoveringRegisterLink = false;
+                          });
+                        },
+                        child: GestureDetector(
+                          onTap: widget.onSwitchToRegister,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isHoveringRegisterLink
+                                  ? Colors.deepPurple.withOpacity(0.1)
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: _isHoveringRegisterLink
+                                    ? Colors.deepPurple
+                                    : Colors.deepPurple.withOpacity(0.5),
+                                width: _isHoveringRegisterLink ? 2 : 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.person_add_outlined,
+                                  color: Colors.deepPurple,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 300),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isHoveringRegisterLink
+                                        ? Colors.deepPurple
+                                        : Colors.deepPurple,
+                                    letterSpacing: _isHoveringRegisterLink
+                                        ? 0.3
+                                        : 0,
+                                  ),
+                                  child: const Text('Daftar Sekarang'),
+                                ),
+                                if (_isHoveringRegisterLink) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    color: Colors.deepPurple,
+                                    size: 16,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

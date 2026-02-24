@@ -24,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isHoveringLoginLink = false;
   String? _errorMessage;
 
   @override
@@ -92,9 +93,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   'Buat Akun',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                  ),
                 ),
                 const SizedBox(height: 32),
 
@@ -247,8 +248,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -261,24 +263,94 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // Switch to Login
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Sudah punya akun? '),
-                    GestureDetector(
-                      onTap: widget.onSwitchToLogin,
-                      child: const Text(
-                        'Masuk di sini',
-                        style: TextStyle(
-                          color: Colors.deepPurple,
-                          fontWeight: FontWeight.bold,
+                // Switch to Login Link
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Sudah punya akun?',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      MouseRegion(
+                        onEnter: (_) {
+                          setState(() {
+                            _isHoveringLoginLink = true;
+                          });
+                        },
+                        onExit: (_) {
+                          setState(() {
+                            _isHoveringLoginLink = false;
+                          });
+                        },
+                        child: GestureDetector(
+                          onTap: widget.onSwitchToLogin,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isHoveringLoginLink
+                                  ? Colors.deepPurple.withOpacity(0.1)
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: _isHoveringLoginLink
+                                    ? Colors.deepPurple
+                                    : Colors.deepPurple.withOpacity(0.5),
+                                width: _isHoveringLoginLink ? 2 : 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.login_outlined,
+                                  color: Colors.deepPurple,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 300),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isHoveringLoginLink
+                                        ? Colors.deepPurple
+                                        : Colors.deepPurple,
+                                    letterSpacing: _isHoveringLoginLink
+                                        ? 0.3
+                                        : 0,
+                                  ),
+                                  child: const Text('Masuk Sekarang'),
+                                ),
+                                if (_isHoveringLoginLink) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    color: Colors.deepPurple,
+                                    size: 16,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
