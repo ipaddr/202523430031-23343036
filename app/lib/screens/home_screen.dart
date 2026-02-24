@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
+import '../widgets/logout_dialog.dart';
+import 'logout_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
   final VoidCallback onLogout;
 
-  const HomeScreen({
-    super.key,
-    required this.user,
-    required this.onLogout,
-  });
+  const HomeScreen({super.key, required this.user, required this.onLogout});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -23,33 +21,65 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _userDataFuture =
-        FirebaseService().getUserData(widget.user.uid);
+    _userDataFuture = FirebaseService().getUserData(widget.user.uid);
   }
 
   Future<void> _handleLogout() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // Get user data for dialog
+    final userData = await _userDataFuture;
+    final userName = userData?['fullName'] ?? 'Pengguna';
 
-    try {
-      await FirebaseService().logout();
-      if (mounted) {
-        widget.onLogout();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout gagal: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    if (!mounted) return;
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => LogoutDialog(
+        userName: userName,
+        userEmail: widget.user.email ?? '',
+        onCancel: () {
+          Navigator.of(context).pop();
+        },
+        onConfirm: () async {
+          Navigator.of(context).pop();
+
+          setState(() {
+            _isLoading = true;
+          });
+
+          try {
+            // Perform logout
+            await FirebaseService().logout();
+
+            if (mounted) {
+              // Show success screen
+              await Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => LogoutSuccessScreen(
+                    userName: userName,
+                    onComplete: () {
+                      if (mounted) {
+                        widget.onLogout();
+                      }
+                    },
+                  ),
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Logout gagal: $e')));
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -65,15 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _userDataFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
-            );
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
 
           final userData = snapshot.data;
@@ -119,19 +145,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               'Selamat datang!',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white70,
-                                  ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white70),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               userData?['fullName'] ?? 'User',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
+                              style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -148,9 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 // User Information Section
                 Text(
                   'Informasi Akun',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
 
@@ -171,10 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.deepPurple.shade100,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
-                            Icons.email,
-                            color: Colors.deepPurple,
-                          ),
+                          child: Icon(Icons.email, color: Colors.deepPurple),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -183,22 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 'Email',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Colors.grey,
-                                    ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.grey),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.user.email ?? 'Tidak tersedia',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -226,10 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.deepPurple.shade100,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
-                            Icons.badge,
-                            color: Colors.deepPurple,
-                          ),
+                          child: Icon(Icons.badge, color: Colors.deepPurple),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -238,21 +244,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 'User ID',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Colors.grey,
-                                    ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.grey),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.user.uid,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       fontFamily: 'monospace',
@@ -285,8 +285,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
