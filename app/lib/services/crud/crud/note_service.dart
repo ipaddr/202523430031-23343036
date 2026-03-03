@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:path_provider/path_provider.dart'
@@ -25,6 +27,27 @@ class CouldNotUpdateNote implements Exception {}
 class NoteService {
   sqflite.Database? _db;
 
+  // StreamControllers for real-time updates
+  late final StreamController<List<DatabaseNote>> _notesStreamController;
+
+  Stream<List<DatabaseNote>> get allNotesStream =>
+      _notesStreamController.stream;
+
+  // Initialize StreamController in constructor
+  NoteService() {
+    _notesStreamController = StreamController<List<DatabaseNote>>.broadcast();
+  }
+
+  /// Refresh and notify all listeners of notes changes
+  Future<void> _notifyNotesChanged() async {
+    try {
+      final notes = await getAllNotes();
+      _notesStreamController.add(notes.toList());
+    } catch (e) {
+      _notesStreamController.addError(e);
+    }
+  }
+
   Future<DatabaseNote> updateNote({
     required DatabaseNote note,
     required String text,
@@ -43,6 +66,7 @@ class NoteService {
     if (updatedCount == 0) {
       throw CouldNotUpdateNote();
     } else {
+      await _notifyNotesChanged();
       return await getNote(id: note.id);
     }
   }
@@ -71,7 +95,9 @@ class NoteService {
 
   Future<int> deleteAllNotes() async {
     final db = _getDatabaseOrThrow();
-    return await db.delete(noteTable);
+    final result = await db.delete(noteTable);
+    await _notifyNotesChanged();
+    return result;
   }
 
   Future<void> deleteNote({required int id}) async {
@@ -84,6 +110,7 @@ class NoteService {
     if (deletedCount != 1) {
       throw CouldNotDeleteNote();
     }
+    await _notifyNotesChanged();
   }
 
   Future<DatabaseNote> createNote({required DatabaseUser owner}) async {
@@ -108,6 +135,7 @@ class NoteService {
       isSyncedWithCloud: true,
     );
 
+    await _notifyNotesChanged();
     return note;
   }
 
@@ -172,6 +200,7 @@ class NoteService {
     } else {
       await db.close();
       _db = null;
+      await _notesStreamController.close();
     }
   }
 
