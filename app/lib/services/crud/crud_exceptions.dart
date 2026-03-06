@@ -47,3 +47,19 @@ class CouldNotFindNote implements Exception {
 class CouldNotUpdateNote implements Exception {
   const CouldNotUpdateNote();
 }
+
+// Authentication & Authorization exceptions
+@immutable
+class UserNotAuthenticatedException implements Exception {
+  const UserNotAuthenticatedException();
+}
+
+@immutable
+class UnauthorizedAccessException implements Exception {
+  const UnauthorizedAccessException();
+}
+
+@immutable
+class UserSessionExpiredException implements Exception {
+  const UserSessionExpiredException();
+}

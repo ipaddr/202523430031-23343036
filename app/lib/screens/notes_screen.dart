@@ -25,14 +25,30 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   void initState() {
     super.initState();
-    _noteService = NoteService();
-    _noteService.open();
+    final currentUserEmail = AuthService().currentUser?.email;
+    if (currentUserEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User not authenticated'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    _noteService = NoteService(userEmail: currentUserEmail);
+    _noteService.open(userEmail: currentUserEmail);
     _notesStream = FirebaseService().getUserNotes();
   }
 
   @override
   void dispose() {
-    _noteService.close();
+    try {
+      _noteService.close();
+    } catch (e) {
+      // Database already closed or error during close
+    }
     super.dispose();
   }
 
