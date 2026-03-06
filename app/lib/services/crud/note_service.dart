@@ -12,7 +12,7 @@ class NoteService {
   Database? _db;
   String? _currentUserEmail;
   final FirebaseService _firebaseService = FirebaseService();
-  
+
   Timer? _syncTimer;
   bool _isSyncing = false;
   final Duration _syncInterval = const Duration(seconds: 30);
@@ -21,9 +21,8 @@ class NoteService {
 
   final _notesStreamController =
       StreamController<List<DatabaseNote>>.broadcast();
-  
-  final _syncStatusStreamController =
-      StreamController<SyncStatus>.broadcast();
+
+  final _syncStatusStreamController = StreamController<SyncStatus>.broadcast();
 
   /// Initialize NoteService with current user email
   NoteService({String? userEmail}) : _currentUserEmail = userEmail;
@@ -160,14 +159,14 @@ class NoteService {
       // Extract title from first line or use default
       final lines = text.split('\n');
       final title = lines.isNotEmpty && lines.first.isNotEmpty
-          ? lines.first.substring(0, (lines.first.length > 100 ? 100 : lines.first.length))
+          ? lines.first.substring(
+              0,
+              (lines.first.length > 100 ? 100 : lines.first.length),
+            )
           : 'Untitled Note';
 
       // Push to Firebase (create new note)
-      await _firebaseService.createNote(
-        title: title,
-        content: text,
-      );
+      await _firebaseService.createNote(title: title, content: text);
 
       // Mark as synced in local database
       await _markAsSynced(note.id);
