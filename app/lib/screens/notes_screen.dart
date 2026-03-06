@@ -1,5 +1,6 @@
 import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/cloud_notes_service.dart';
 import 'add_note_screen.dart';
@@ -217,6 +218,253 @@ class _NotesScreenState extends State<NotesScreen> {
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Show share options dialog
+  void _showShareDialog(CloudNote note) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.share, color: Colors.green[600], size: 28),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('Bagikan Catatan')),
+          ],
+        ),
+        content: Text(
+          'Pilih cara untuk berbagi catatan "${note.title}"',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.person_add),
+            label: const Text('Bagikan Ke User'),
+            onPressed: () {
+              Navigator.pop(context);
+              _showShareWithUserDialog(note);
+            },
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.share_outlined),
+            label: const Text('Bagikan Konten'),
+            onPressed: () {
+              Navigator.pop(context);
+              _shareNoteContent(note);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Share note content via system share dialog
+  void _shareNoteContent(CloudNote note) {
+    final shareContent = _cloudNotesService.getShareableContent(note);
+    Clipboard.setData(ClipboardData(text: shareContent)).then((_) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green[300], size: 20),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('Konten catatan disalin ke clipboard'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green[700],
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    });
+  }
+
+  /// Show dialog to share note with another user
+  void _showShareWithUserDialog(CloudNote note) {
+    final emailController = TextEditingController();
+    String selectedPermission = 'view';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.person_add, color: Colors.blue[600], size: 28),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('Bagikan Ke User')),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Masukkan email user',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'user@example.com',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Izin akses',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<String>(
+                  value: selectedPermission,
+                  isExpanded: true,
+                  items: [
+                    DropdownMenuItem(
+                      value: 'view',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.visibility,
+                            size: 18,
+                            color: Colors.blue[600],
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Hanya Lihat'),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18, color: Colors.orange[600]),
+                          const SizedBox(width: 8),
+                          const Text('Lihat & Edit'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedPermission = value ?? 'view';
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Harap masukkan email'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  Navigator.pop(context);
+                  await _cloudNotesService.shareNoteWithUser(
+                    noteId: note.id,
+                    recipientEmail: email,
+                    permission: selectedPermission,
+                  );
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: Colors.green[300],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Catatan berhasil dibagikan ke $email',
+                              ),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: Colors.green[700],
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 3),
+                        margin: const EdgeInsets.all(16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Gagal berbagi: $e'),
+                        backgroundColor: Colors.red[700],
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 3),
+                        margin: const EdgeInsets.all(16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Bagikan'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -439,6 +687,20 @@ class _NotesScreenState extends State<NotesScreen> {
                             ),
                           );
                         },
+                      ),
+                      PopupMenuItem(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.share,
+                              size: 18,
+                              color: Colors.green[600],
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Bagikan'),
+                          ],
+                        ),
+                        onTap: () => _showShareDialog(note),
                       ),
                       PopupMenuItem(
                         child: Row(
