@@ -1,8 +1,10 @@
+import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import 'add_note_screen.dart';
 import 'note_operation_success_screen.dart';
+import 'package:app/services/crud/note_service.dart';
 
 class NotesScreen extends StatefulWidget {
   final User user;
@@ -14,12 +16,23 @@ class NotesScreen extends StatefulWidget {
 }
 
 class _NotesScreenState extends State<NotesScreen> {
+  late final NoteService _noteService;
   late Stream<List<Map<String, dynamic>>> _notesStream;
+
+  String get userEmail => AuthService().currentUser?.email ?? 'Unknown';
 
   @override
   void initState() {
     super.initState();
+    _noteService = NoteService();
+    _noteService.open();
     _notesStream = FirebaseService().getUserNotes();
+  }
+
+  @override
+  void dispose() {
+    _noteService.close();
+    super.dispose();
   }
 
   Future<void> _deleteNote(String noteId) async {
