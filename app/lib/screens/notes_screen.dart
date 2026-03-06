@@ -18,6 +18,7 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   late final NoteService _noteService;
   late Stream<List<Map<String, dynamic>>> _notesStream;
+  int _noteCount = 0;
 
   String get userEmail => AuthService().currentUser?.email ?? 'Unknown';
 
@@ -33,6 +34,20 @@ class _NotesScreenState extends State<NotesScreen> {
   void dispose() {
     _noteService.close();
     super.dispose();
+  }
+
+  /// Calculate word count from text
+  int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).length;
+  }
+
+  /// Get character preview summary
+  String _getCharSummary(Map<String, dynamic> note) {
+    final content = note['content'] as String? ?? '';
+    final charCount = content.length;
+    final wordCount = _countWords(content);
+    return '$wordCount kata • $charCount karakter';
   }
 
   Future<void> _deleteNote(String noteId) async {
@@ -95,19 +110,51 @@ class _NotesScreenState extends State<NotesScreen> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: Colors.deepPurple.withOpacity(0.3),
+            height: 1,
+          ),
+        ),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _notesStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+              ),
+            );
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[200]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Terjadi Kesalahan',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge?.copyWith(color: Colors.red[400]),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
           }
 
           final notes = snapshot.data ?? [];
+          _noteCount = notes.length;
 
           if (notes.isEmpty) {
             return Center(
@@ -118,115 +165,77 @@ class _NotesScreenState extends State<NotesScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Belum ada catatan',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(color: Colors.grey[500]),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Buat catatan baru dengan menekan tombol +',
+                    'Buat catatan baru untuk memulai',
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddNoteScreen(user: widget.user),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Buat Catatan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: List.generate(notes.length, (index) {
-              final note = notes[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AddNoteScreen(
-                            user: widget.user,
-                            noteId: note['id'],
-                            initialTitle: note['title'] ?? '',
-                            initialContent: note['content'] ?? '',
-                          ),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  note['title'] ?? 'Untitled',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.delete, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('Hapus'),
-                                      ],
-                                    ),
-                                    onTap: () => _deleteNote(note['id']),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            note['content'] ?? '',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              height: 1.5,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _formatDate(note['updatedAt']),
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 14,
-                                color: Colors.grey[400],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+          return Column(
+            children: [
+              // Notes count header
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                color: Colors.deepPurple.withOpacity(0.05),
+                width: double.infinity,
+                child: Text(
+                  '$_noteCount catatan tersimpan',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              );
-            }),
+              ),
+              // Notes list
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: notes.length,
+                  itemBuilder: (context, index) {
+                    final note = notes[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildNoteCard(context, note),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -239,6 +248,153 @@ class _NotesScreenState extends State<NotesScreen> {
           );
         },
         child: const Icon(Icons.add),
+        tooltip: 'Buat Catatan Baru',
+      ),
+    );
+  }
+
+  /// Build individual note card with enhanced styling
+  Widget _buildNoteCard(BuildContext context, Map<String, dynamic> note) {
+    final title = note['title'] as String? ?? 'Untitled';
+    final content = note['content'] as String? ?? '';
+    final noteId = note['id'] as String? ?? '';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddNoteScreen(
+                user: widget.user,
+                noteId: noteId,
+                initialTitle: title,
+                initialContent: content,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title row with delete button
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  PopupMenuButton(
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: Colors.grey[600],
+                      size: 20,
+                    ),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18, color: Colors.blue[600]),
+                            const SizedBox(width: 8),
+                            const Text('Edit'),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AddNoteScreen(
+                                user: widget.user,
+                                noteId: noteId,
+                                initialTitle: title,
+                                initialContent: content,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      PopupMenuItem(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete,
+                              size: 18,
+                              color: Colors.red[600],
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Hapus'),
+                          ],
+                        ),
+                        onTap: () => _deleteNote(noteId),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Content preview
+              if (content.isNotEmpty)
+                Text(
+                  content,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[700],
+                    height: 1.5,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                )
+              else
+                Text(
+                  'Tidak ada konten',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Footer with stats and date
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _getCharSummary(note),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: Colors.grey[500]),
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(note['updatedAt']),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
