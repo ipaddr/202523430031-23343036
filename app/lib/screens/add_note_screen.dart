@@ -33,6 +33,15 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   // Validation state
   String? _titleError;
 
+  // Character counts
+  int _titleCharCount = 0;
+  int _contentCharCount = 0;
+  int _contentWordCount = 0;
+
+  // Constants
+  static const int _titleMaxLength = 200;
+  static const int _contentMaxLength = 5000;
+
   @override
   void initState() {
     super.initState();
@@ -41,9 +50,30 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     _titleFocusNode = FocusNode();
     _contentFocusNode = FocusNode();
 
+    _titleCharCount = widget.initialTitle.length;
+    _contentCharCount = widget.initialContent.length;
+    _contentWordCount = _countWords(widget.initialContent);
+
     _titleController.addListener(_onChanged);
     _contentController.addListener(_onChanged);
     _titleController.addListener(_validateTitle);
+    _titleController.addListener(_updateCharCounts);
+    _contentController.addListener(_updateCharCounts);
+  }
+
+  /// Update character and word counts
+  void _updateCharCounts() {
+    setState(() {
+      _titleCharCount = _titleController.text.length;
+      _contentCharCount = _contentController.text.length;
+      _contentWordCount = _countWords(_contentController.text);
+    });
+  }
+
+  /// Count words in text
+  int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).length;
   }
 
   /// Validate title field
@@ -244,50 +274,99 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         ),
         body: Column(
           children: [
-            // Title Input
+            // Title Input with Character Count
             Padding(
               padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _titleController,
-                focusNode: _titleFocusNode,
-                decoration: InputDecoration(
-                  hintText: 'Judul catatan',
-                  errorText: _titleError,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    focusNode: _titleFocusNode,
+                    decoration: InputDecoration(
+                      hintText: 'Judul catatan',
+                      errorText: _titleError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      prefixIcon: const Icon(Icons.title),
+                      suffixIcon: _titleCharCount > _titleMaxLength * 0.8
+                          ? Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                '$_titleCharCount/$_titleMaxLength',
+                                style: TextStyle(
+                                  color: _titleCharCount > _titleMaxLength
+                                      ? Colors.red
+                                      : Colors.orange,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                    style: Theme.of(context).textTheme.titleLarge,
+                    maxLines: 1,
+                    maxLength: _titleMaxLength,
+                    onSubmitted: (_) {
+                      _contentFocusNode.requestFocus();
+                    },
                   ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                  prefixIcon: const Icon(Icons.title),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                style: Theme.of(context).textTheme.titleLarge,
-                maxLines: 1,
-                onSubmitted: (_) {
-                  _contentFocusNode.requestFocus();
-                },
+                ],
               ),
             ),
-            // Content Input
+            // Content Input with Stats
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _contentController,
-                  focusNode: _contentFocusNode,
-                  decoration: InputDecoration(
-                    hintText: 'Tulis catatan Anda di sini...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _contentController,
+                        focusNode: _contentFocusNode,
+                        decoration: InputDecoration(
+                          hintText: 'Tulis catatan Anda di sini...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        maxLength: _contentMaxLength,
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.all(16),
-                  ),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
+                    // Stats Row
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Kata: $_contentWordCount',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          Text(
+                            'Karakter: $_contentCharCount/$_contentMaxLength',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _contentCharCount > _contentMaxLength * 0.8
+                                  ? Colors.orange
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
