@@ -9,13 +9,58 @@ import 'crud_exceptions.dart';
 
 class NoteService {
   Database? _db;
+  String? _currentUserEmail;
 
   List<DatabaseNote> _notes = [];
 
   final _notesStreamController =
       StreamController<List<DatabaseNote>>.broadcast();
 
+  /// Initialize NoteService with current user email
+  NoteService({String? userEmail}) : _currentUserEmail = userEmail;
+
+  /// Verify that a user is authenticated and matches current user
+  void _validateUserAuthentication() {
+    if (_currentUserEmail == null || _currentUserEmail!.isEmpty) {
+      throw const UserNotAuthenticatedException();
+    }
+  }
+
+  /// Verify user hasn't changed
+  void _verifyUserMatch(String userEmail) {
+    _validateUserAuthentication();
+    if (_currentUserEmail!.toLowerCase() != userEmail.toLowerCase()) {
+      throw const UnauthorizedAccessException();
+    }
+  }
+
+  /// Set current user email (called after authentication)
+  void setCurrentUser(String userEmail) {
+    _currentUserEmail = userEmail.toLowerCase();
+  }
+
+  /// Clear user session (called on logout)
+  Future<void> clearUserSession() async {
+    final db = _db;
+    if (db != null) {
+      await db.close();
+      _db = null;
+    }
+    _currentUserEmail = null;
+    _notes = [];
+    await _notesStreamController.close();
+  }
+
+  /// Get current user email
+  String? get currentUserEmail => _currentUserEmail;
+
+  /// Check if user is authenticated
+  bool get isUserAuthenticated => _currentUserEmail != null && _currentUserEmail!.isNotEmpty;
+
   Future<DatabaseUser> getOrCreateUser({required String email}) async {
+    _validateUserAuthentication();
+    _verifyUserMatch(email);
+
     try {
       final user = await getUser(email: email);
       return user;
@@ -37,6 +82,8 @@ class NoteService {
     required DatabaseNote note,
     required String text,
   }) async {
+    _validateUserAuthentication();
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
 
@@ -61,6 +108,8 @@ class NoteService {
   }
 
   Future<Iterable<DatabaseNote>> getAllNotes() async {
+    _validateUserAuthentication();
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final notes = await db.query(noteTable);
@@ -68,6 +117,8 @@ class NoteService {
   }
 
   Future<DatabaseNote> getNote({required int id}) async {
+    _validateUserAuthentication();
+
     final db = _getDatabaseOrThrow();
     final notes = await db.query(
       noteTable,
@@ -88,6 +139,8 @@ class NoteService {
   }
 
   Future<int> deleteAllNotes() async {
+    _validateUserAuthentication();
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final numberOfDeletions = await db.delete(noteTable);
@@ -97,6 +150,8 @@ class NoteService {
   }
 
   Future<void> deleteNote({required int id}) async {
+    _validateUserAuthentication();
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final deletedCount = await db.delete(
@@ -113,11 +168,14 @@ class NoteService {
   }
 
   Future<DatabaseNote> createNote({required DatabaseUser owner}) async {
+    _validateUserAuthentication();
+    _verifyUserMatch(owner.email);
+
     final db = _getDatabaseOrThrow();
 
     final dbUser = await getUser(email: owner.email);
     if (dbUser != owner) {
-      throw CouldNotFindUser();
+      throw const UnauthorizedAccessException();
     }
 
     const text = '';
@@ -141,6 +199,9 @@ class NoteService {
   }
 
   Future<DatabaseUser> getUser({required String email}) async {
+    _validateUserAuthentication();
+    _verifyUserMatch(email);
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final results = await db.query(
@@ -158,6 +219,9 @@ class NoteService {
   }
 
   Future<DatabaseUser> createUser({required String email}) async {
+    _validateUserAuthentication();
+    _verifyUserMatch(email);
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final results = await db.query(
@@ -176,6 +240,9 @@ class NoteService {
   }
 
   Future<void> deleteUser({required String email}) async {
+    _validateUserAuthentication();
+    _verifyUserMatch(email);
+
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final deletedCount = await db.delete(
@@ -204,7 +271,13 @@ class NoteService {
     } else {
       await db.close();
       _db = null;
-      await _notesStreamController.close();
+      _currentUserEmail = null;
+      _notes = [];
+      try {
+        await _notesStreamController.close();
+      } catch (e) {
+        // Already closed or error closing stream, ignore
+      }
     }
   }
 
@@ -216,7 +289,13 @@ class NoteService {
     }
   }
 
-  Future<void> open() async {
+  Future<void> open({String? userEmail}) async {
+    _validateUserAuthentication();
+    
+    if (userEmail != null) {
+      _verifyUserMatch(userEmail);
+    }
+
     if (_db != null) {
       throw DatabaseAlreadyOpenException();
     }
@@ -229,6 +308,14 @@ class NoteService {
       await db.execute(createUserTable);
 
       await db.execute(createNoteTable);
+      
+      // Ensure current user exists in database
+      try {
+        await getOrCreateUser(email: _currentUserEmail!);
+      } catch (e) {
+        rethrow;
+      }
+      
       await _cacheNotes();
     } on MissingPlatformDirectoryException {
       throw Exception('Could not find the documents directory');
