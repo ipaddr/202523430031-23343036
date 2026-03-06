@@ -1,23 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart' show User;
+import 'package:flutter/foundation.dart';
+
+@immutable
 class AuthUser {
-  final String? uid;
-  final String? email;
+  final String email;
   final bool isEmailVerified;
 
-  const AuthUser({this.uid, this.email, this.isEmailVerified = false});
+  const AuthUser({required this.email, required this.isEmailVerified});
 
-  @override
-  String toString() =>
-      'AuthUser(uid: $uid, email: $email, isEmailVerified: $isEmailVerified)';
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AuthUser &&
-          runtimeType == other.runtimeType &&
-          uid == other.uid &&
-          email == other.email &&
-          isEmailVerified == other.isEmailVerified;
-
-  @override
-  int get hashCode => uid.hashCode ^ email.hashCode ^ isEmailVerified.hashCode;
+  factory AuthUser.fromFirebase(User user) {
+    return AuthUser(
+      email: user.email ?? '',
+      isEmailVerified: user.emailVerified,
+    );
+  }
 }
