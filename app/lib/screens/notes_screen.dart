@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import 'add_note_screen.dart';
-import 'note_operation_success_screen.dart';
 import 'package:app/services/crud/note_service.dart';
 
 class NotesScreen extends StatefulWidget {
@@ -19,6 +18,7 @@ class _NotesScreenState extends State<NotesScreen> {
   late final NoteService _noteService;
   late Stream<List<Map<String, dynamic>>> _notesStream;
   int _noteCount = 0;
+  bool _isDeleting = false;
 
   String get userEmail => AuthService().currentUser?.email ?? 'Unknown';
 
@@ -50,54 +50,176 @@ class _NotesScreenState extends State<NotesScreen> {
     return '$wordCount kata • $charCount karakter';
   }
 
-  Future<void> _deleteNote(String noteId) async {
+  Future<void> _deleteNote(String noteId, {String? noteTitle}) async {
+    final displayTitle = noteTitle ?? 'Catatan';
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Catatan?'),
-        content: const Text('Catatan yang dihapus tidak dapat dikembalikan.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await FirebaseService().deleteNote(noteId);
-                if (mounted) {
-                  Navigator.pop(context);
-                  _showDeleteSuccessScreen();
-                }
-              } catch (e) {
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange[600],
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Hapus Catatan?',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-        ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Catatan berikut akan dihapus secara permanen:',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border(
+                    left: BorderSide(color: Colors.orange[600]!, width: 4),
+                  ),
+                ),
+                child: Text(
+                  '"$displayTitle"',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '⚠️ Tindakan ini tidak dapat dibatalkan!',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.red[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isDeleting ? null : () => Navigator.pop(context),
+              child: Text('Batal', style: TextStyle(color: Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: _isDeleting
+                  ? null
+                  : () async {
+                      setState(() => _isDeleting = true);
+                      try {
+                        await FirebaseService().deleteNote(noteId);
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          _showDeleteSuccessSnackbar(displayTitle);
+                        }
+                      } on FirebaseException catch (e) {
+                        if (mounted) {
+                          setState(() => _isDeleting = false);
+                          _showDeleteErrorDialog(
+                            e.message ?? 'Error tidak diketahui',
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() => _isDeleting = false);
+                          _showDeleteErrorDialog(e.toString());
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+              ),
+              child: _isDeleting
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Menghapus...'),
+                      ],
+                    )
+                  : const Text('Hapus Selamanya'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showDeleteSuccessScreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => NoteOperationSuccessScreen(
-          title: 'Catatan Dihapus!',
-          message: 'Catatan Anda berhasil dihapus dari daftar.',
-          buttonText: 'Kembali',
-          icon: Icons.delete_sweep,
-          backgroundColor: Colors.orange,
-          onContinue: () {
-            Navigator.of(context).pop();
-          },
+  /// Show success feedback with snackbar
+  void _showDeleteSuccessSnackbar(String noteTitle) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green[300], size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Catatan "$noteTitle" berhasil dihapus')),
+          ],
         ),
+        backgroundColor: Colors.green[700],
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// Show error dialog for deletion failures
+  void _showDeleteErrorDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[600], size: 28),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('Gagal Menghapus')),
+          ],
+        ),
+        content: Text(
+          errorMessage,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -337,7 +459,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             const Text('Hapus'),
                           ],
                         ),
-                        onTap: () => _deleteNote(noteId),
+                        onTap: () => _deleteNote(noteId, noteTitle: title),
                       ),
                     ],
                   ),
