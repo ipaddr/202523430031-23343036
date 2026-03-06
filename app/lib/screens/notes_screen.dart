@@ -52,7 +52,7 @@ class _NotesScreenState extends State<NotesScreen> {
 
   Future<void> _deleteNote(String noteId, {String? noteTitle}) async {
     final displayTitle = noteTitle ?? 'Catatan';
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -72,10 +72,7 @@ class _NotesScreenState extends State<NotesScreen> {
               const Expanded(
                 child: Text(
                   'Hapus Catatan?',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -95,18 +92,15 @@ class _NotesScreenState extends State<NotesScreen> {
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
                   border: Border(
-                    left: BorderSide(
-                      color: Colors.orange[600]!,
-                      width: 4,
-                    ),
+                    left: BorderSide(color: Colors.orange[600]!, width: 4),
                   ),
                 ),
                 child: Text(
                   '"$displayTitle"',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[800],
-                      ),
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -115,23 +109,16 @@ class _NotesScreenState extends State<NotesScreen> {
               Text(
                 '⚠️ Tindakan ini tidak dapat dibatalkan!',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.red[600],
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: Colors.red[600],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: _isDeleting
-                  ? null
-                  : () => Navigator.pop(context),
-              child: Text(
-                'Batal',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
-              ),
+              onPressed: _isDeleting ? null : () => Navigator.pop(context),
+              child: Text('Batal', style: TextStyle(color: Colors.grey[600])),
             ),
             ElevatedButton(
               onPressed: _isDeleting
@@ -140,7 +127,7 @@ class _NotesScreenState extends State<NotesScreen> {
                       setState(() => _isDeleting = true);
                       try {
                         await FirebaseService().deleteNote(noteId);
-                        
+
                         if (mounted) {
                           Navigator.pop(context);
                           _showDeleteSuccessSnackbar(displayTitle);
@@ -148,7 +135,9 @@ class _NotesScreenState extends State<NotesScreen> {
                       } on FirebaseException catch (e) {
                         if (mounted) {
                           setState(() => _isDeleting = false);
-                          _showDeleteErrorDialog(e.message ?? 'Error tidak diketahui');
+                          _showDeleteErrorDialog(
+                            e.message ?? 'Error tidak diketahui',
+                          );
                         }
                       } catch (e) {
                         if (mounted) {
@@ -194,26 +183,16 @@ class _NotesScreenState extends State<NotesScreen> {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.green[300],
-              size: 20,
-            ),
+            Icon(Icons.check_circle, color: Colors.green[300], size: 20),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Catatan "$noteTitle" berhasil dihapus',
-              ),
-            ),
+            Expanded(child: Text('Catatan "$noteTitle" berhasil dihapus')),
           ],
         ),
         backgroundColor: Colors.green[700],
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -223,20 +202,12 @@ class _NotesScreenState extends State<NotesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.red[600],
-              size: 28,
-            ),
+            Icon(Icons.error_outline, color: Colors.red[600], size: 28),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Gagal Menghapus'),
-            ),
+            const Expanded(child: Text('Gagal Menghapus')),
           ],
         ),
         content: Text(
