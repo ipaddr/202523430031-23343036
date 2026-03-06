@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../services/firebase_service.dart';
 import 'note_operation_success_screen.dart';
 
@@ -26,15 +27,33 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   late TextEditingController _contentController;
   bool _isLoading = false;
   bool _isModified = false;
+  late FocusNode _titleFocusNode;
+  late FocusNode _contentFocusNode;
+
+  // Validation state
+  String? _titleError;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.initialTitle);
     _contentController = TextEditingController(text: widget.initialContent);
+    _titleFocusNode = FocusNode();
+    _contentFocusNode = FocusNode();
 
     _titleController.addListener(_onChanged);
     _contentController.addListener(_onChanged);
+    _titleController.addListener(_validateTitle);
+  }
+
+  /// Validate title field
+  void _validateTitle() {
+    if (_titleController.text.isEmpty && _titleFocusNode.hasFocus) {
+      _titleError = 'Judul tidak boleh kosong';
+    } else {
+      _titleError = null;
+    }
+    if (mounted) setState(() {});
   }
 
   void _onChanged() {
@@ -47,51 +66,89 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _titleFocusNode.dispose();
+    _contentFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _saveNote() async {
-    if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Judul tidak boleh kosong')));
+    final trimmedTitle = _titleController.text.trim();
+    final trimmedContent = _contentController.text.trim();
+
+    // Validate title
+    if (trimmedTitle.isEmpty) {
+      setState(() {
+        _titleError = 'Judul tidak boleh kosong';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Judul tidak boleh kosong'),
+          duration: Duration(seconds: 2),
+        ),
+      );
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _titleError = null;
     });
 
     try {
       final isCreating = widget.noteId == null;
+
       if (isCreating) {
         // Create new note
         await FirebaseService().createNote(
-          title: _titleController.text.trim(),
-          content: _contentController.text.trim(),
+          title: trimmedTitle,
+          content: trimmedContent,
         );
       } else {
         // Update existing note
         await FirebaseService().updateNote(
           noteId: widget.noteId!,
-          title: _titleController.text.trim(),
-          content: _contentController.text.trim(),
+          title: trimmedTitle,
+          content: trimmedContent,
         );
       }
 
       if (mounted) {
         _showSuccessScreen(isCreating);
       }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorDialog(
+          'Error Firebase',
+          e.message ?? 'Terjadi kesalahan saat menyimpan catatan',
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        _showErrorDialog('Error', 'Terjadi kesalahan: $e');
       }
     }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccessScreen(bool isCreating) {
@@ -192,16 +249,25 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
               padding: const EdgeInsets.all(16),
               child: TextField(
                 controller: _titleController,
+                focusNode: _titleFocusNode,
                 decoration: InputDecoration(
                   hintText: 'Judul catatan',
+                  errorText: _titleError,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
                   ),
                   prefixIcon: const Icon(Icons.title),
                   contentPadding: const EdgeInsets.all(16),
                 ),
                 style: Theme.of(context).textTheme.titleLarge,
                 maxLines: 1,
+                onSubmitted: (_) {
+                  _contentFocusNode.requestFocus();
+                },
               ),
             ),
             // Content Input
@@ -210,6 +276,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   controller: _contentController,
+                  focusNode: _contentFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Tulis catatan Anda di sini...',
                     border: OutlineInputBorder(
