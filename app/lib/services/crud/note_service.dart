@@ -1,34 +1,36 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show immutable;
-import 'package:sqflite/sqflite.dart' as sqflite;
+import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart'
     show MissingPlatformDirectoryException, getApplicationDocumentsDirectory;
 import 'package:path/path.dart' show join;
 import 'crud_exceptions.dart';
 
 class NoteService {
-  sqflite.Database? _db;
+  Database? _db;
 
-  // StreamControllers for real-time updates
-  late final StreamController<List<DatabaseNote>> _notesStreamController;
+  List<DatabaseNote> _notes = [];
 
-  Stream<List<DatabaseNote>> get allNotesStream =>
-      _notesStreamController.stream;
+  final _notesStreamController =
+      StreamController<List<DatabaseNote>>.broadcast();
 
-  // Initialize StreamController in constructor
-  NoteService() {
-    _notesStreamController = StreamController<List<DatabaseNote>>.broadcast();
+  Future<DatabaseUser> getOrCreateUser({required String email}) async {
+    try {
+      final user = await getUser(email: email);
+      return user;
+    } on CouldNotFindUser {
+      final createdUser = await createUser(email: email);
+      return createdUser;
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  /// Refresh and notify all listeners of notes changes
-  Future<void> _notifyNotesChanged() async {
-    try {
-      final notes = await getAllNotes();
-      _notesStreamController.add(notes.toList());
-    } catch (e) {
-      _notesStreamController.addError(e);
-    }
+  Future<void> _cacheNotes() async {
+    final allNotes = await getAllNotes();
+    _notes = allNotes.toList();
+    _notesStreamController.add(_notes);
   }
 
   Future<DatabaseNote> updateNote({
@@ -49,8 +51,11 @@ class NoteService {
     if (updatedCount == 0) {
       throw CouldNotUpdateNote();
     } else {
-      await _notifyNotesChanged();
-      return await getNote(id: note.id);
+      final updatedNote = await getNote(id: note.id);
+      _notes.removeWhere((n) => n.id == note.id);
+      _notes.add(updatedNote);
+      _notesStreamController.add(_notes);
+      return updatedNote;
     }
   }
 
@@ -72,15 +77,20 @@ class NoteService {
     if (notes.isEmpty) {
       throw CouldNotFindNote();
     } else {
-      return DatabaseNote.fromRow(notes.first);
+      final note = DatabaseNote.fromRow(notes.first);
+      _notes.removeWhere((n) => n.id == id);
+      _notes.add(note);
+      _notesStreamController.add(_notes);
+      return note;
     }
   }
 
   Future<int> deleteAllNotes() async {
     final db = _getDatabaseOrThrow();
-    final result = await db.delete(noteTable);
-    await _notifyNotesChanged();
-    return result;
+    final numberOfDeletions = await db.delete(noteTable);
+    _notes = [];
+    _notesStreamController.add(_notes);
+    return numberOfDeletions;
   }
 
   Future<void> deleteNote({required int id}) async {
@@ -92,8 +102,10 @@ class NoteService {
     );
     if (deletedCount != 1) {
       throw CouldNotDeleteNote();
+    } else {
+      _notes.removeWhere((note) => note.id == id);
+      _notesStreamController.add(_notes);
     }
-    await _notifyNotesChanged();
   }
 
   Future<DatabaseNote> createNote({required DatabaseUser owner}) async {
@@ -118,7 +130,9 @@ class NoteService {
       isSyncedWithCloud: true,
     );
 
-    await _notifyNotesChanged();
+    _notes.add(note);
+    _notesStreamController.add(_notes);
+
     return note;
   }
 
@@ -167,7 +181,7 @@ class NoteService {
     }
   }
 
-  sqflite.Database _getDatabaseOrThrow() {
+  Database _getDatabaseOrThrow() {
     final db = _db;
     if (db == null) {
       throw DatabaseIsNotOpen();
@@ -187,19 +201,20 @@ class NoteService {
     }
   }
 
-  Future<void> openDatabase() async {
+  Future<void> open() async {
     if (_db != null) {
       throw DatabaseAlreadyOpenException();
     }
     try {
       final docsPath = await getApplicationDocumentsDirectory();
       final dbPath = join(docsPath.path, dbName);
-      final db = await sqflite.openDatabase(dbPath);
+      final db = await openDatabase(dbPath);
       _db = db;
 
       await db.execute(createUserTable);
 
       await db.execute(createNoteTable);
+      await _cacheNotes();
     } on MissingPlatformDirectoryException {
       throw Exception('Could not find the documents directory');
     }
