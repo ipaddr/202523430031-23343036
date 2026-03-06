@@ -340,4 +340,99 @@ class CloudNotesService {
       throw 'Failed to get note count: $e';
     }
   }
+
+  /// Get formatted note content for sharing
+  String getShareableContent(CloudNote note) {
+    return '${note.title}\n\n${note.content}\n\n---\nDibuat oleh: ${note.userEmail}\nTanggal: ${note.createdAt}';
+  }
+
+  /// Share note with another user (add to their shared collection)
+  Future<void> shareNoteWithUser({
+    required String noteId,
+    required String recipientEmail,
+    String permission = 'view', // 'view' or 'edit'
+  }) async {
+    _validateAuthenticated();
+    final uid = _auth.currentUser!.uid;
+    final userEmail = _auth.currentUser!.email;
+
+    if (userEmail == null) {
+      throw UserNotAuthenticatedException('User email not available');
+    }
+
+    if (userEmail == recipientEmail) {
+      throw 'Tidak dapat berbagi catatan dengan diri sendiri';
+    }
+
+    try {
+      final note = await getNote(noteId);
+
+      if (note == null) {
+        throw 'Catatan tidak ditemukan';
+      }
+
+      // Store sharing record in shared_notes collection
+      await _firestore.collection('shared_notes').add({
+        'originalNoteId': noteId,
+        'ownerUid': uid,
+        'ownerEmail': userEmail,
+        'recipientEmail': recipientEmail,
+        'title': note.title,
+        'content': note.content,
+        'permission': permission,
+        'sharedAt': DateTime.now(),
+        'updatedAt': note.updatedAt,
+      });
+    } catch (e) {
+      throw 'Failed to share note: $e';
+    }
+  }
+
+  /// Get shared notes for current user
+  Stream<List<CloudNote>> getSharedNotesStream() {
+    _validateAuthenticated();
+    final userEmail = _auth.currentUser!.email;
+
+    if (userEmail == null) {
+      throw UserNotAuthenticatedException('User email not available');
+    }
+
+    return _firestore
+        .collection('shared_notes')
+        .where('recipientEmail', isEqualTo: userEmail)
+        .orderBy('sharedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return CloudNote(
+              id: doc.id,
+              title: data['title'] ?? 'Untitled',
+              content: data['content'] ?? '',
+              wordCount: CloudNote._countWords(data['content'] ?? ''),
+              charCount: (data['content'] ?? '').length,
+              createdAt:
+                  (data['sharedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              updatedAt:
+                  (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              userId: data['ownerUid'] ?? '',
+              userEmail: data['ownerEmail'] ?? '',
+            );
+          }).toList();
+        })
+        .handleError((e) {
+          throw 'Failed to load shared notes: $e';
+        });
+  }
+
+  /// Unshare note with user
+  Future<void> unshareNote({required String sharedNoteId}) async {
+    _validateAuthenticated();
+
+    try {
+      await _firestore.collection('shared_notes').doc(sharedNoteId).delete();
+    } catch (e) {
+      throw 'Failed to unshare note: $e';
+    }
+  }
 }
