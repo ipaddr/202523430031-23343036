@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import '../services/firebase_service.dart';
+import '../services/cloud_notes_service.dart';
 import 'note_operation_success_screen.dart';
 
 class AddNoteScreen extends StatefulWidget {
@@ -25,6 +24,7 @@ class AddNoteScreen extends StatefulWidget {
 class _AddNoteScreenState extends State<AddNoteScreen> {
   late TextEditingController _titleController;
   late TextEditingController _contentController;
+  late final CloudNotesService _cloudNotesService;
   bool _isLoading = false;
   bool _isModified = false;
   late FocusNode _titleFocusNode;
@@ -72,6 +72,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   @override
   void initState() {
     super.initState();
+    _cloudNotesService = CloudNotesService();
     _titleController = TextEditingController(text: widget.initialTitle);
     _contentController = TextEditingController(text: widget.initialContent);
     _titleFocusNode = FocusNode();
@@ -171,13 +172,13 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
 
       if (isCreating) {
         // Create new note
-        await FirebaseService().createNote(
+        await _cloudNotesService.createNote(
           title: trimmedTitle,
           content: trimmedContent,
         );
       } else {
         // Update existing note
-        await FirebaseService().updateNote(
+        await _cloudNotesService.updateNote(
           noteId: widget.noteId!,
           title: trimmedTitle,
           content: trimmedContent,
@@ -187,22 +188,15 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       if (mounted) {
         _showSuccessScreen(isCreating);
       }
-    } on FirebaseException catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        _showErrorDialog(
-          'Error Firebase',
-          e.message ?? 'Terjadi kesalahan saat menyimpan catatan',
-        );
-      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        _showErrorDialog('Error', 'Terjadi kesalahan: $e');
+        _showErrorDialog(
+          'Error',
+          'Terjadi kesalahan saat menyimpan catatan: $e',
+        );
       }
     }
   }

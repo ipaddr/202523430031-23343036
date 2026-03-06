@@ -1,9 +1,8 @@
 import 'package:app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/firebase_service.dart';
+import '../services/cloud_notes_service.dart';
 import 'add_note_screen.dart';
-import 'package:app/services/crud/note_service.dart';
 
 class NotesScreen extends StatefulWidget {
   final User user;
@@ -15,8 +14,8 @@ class NotesScreen extends StatefulWidget {
 }
 
 class _NotesScreenState extends State<NotesScreen> {
-  late final NoteService _noteService;
-  late Stream<List<Map<String, dynamic>>> _notesStream;
+  late final CloudNotesService _cloudNotesService;
+  late Stream<List<CloudNote>> _notesStream;
   int _noteCount = 0;
   bool _isDeleting = false;
 
@@ -25,45 +24,34 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   void initState() {
     super.initState();
-    final currentUserEmail = AuthService().currentUser?.email;
-    if (currentUserEmail == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: User not authenticated'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      Navigator.pop(context);
-      return;
-    }
+    _cloudNotesService = CloudNotesService();
+    _notesStream = _cloudNotesService.getUserNotesStream();
 
-    _noteService = NoteService(userEmail: currentUserEmail);
-    _noteService.open(userEmail: currentUserEmail);
-    _notesStream = FirebaseService().getUserNotes();
+    // Load note count
+    _loadNoteCount();
+  }
+
+  Future<void> _loadNoteCount() async {
+    try {
+      final count = await _cloudNotesService.getNoteCount();
+      if (mounted) {
+        setState(() {
+          _noteCount = count;
+        });
+      }
+    } catch (e) {
+      // Silently fail or log
+    }
   }
 
   @override
   void dispose() {
-    try {
-      _noteService.close();
-    } catch (e) {
-      // Database already closed or error during close
-    }
     super.dispose();
   }
 
-  /// Calculate word count from text
-  int _countWords(String text) {
-    if (text.trim().isEmpty) return 0;
-    return text.trim().split(RegExp(r'\s+')).length;
-  }
-
-  /// Get character preview summary
-  String _getCharSummary(Map<String, dynamic> note) {
-    final content = note['content'] as String? ?? '';
-    final charCount = content.length;
-    final wordCount = _countWords(content);
-    return '$wordCount kata • $charCount karakter';
+  /// Get character and word summary for note
+  String _getCharSummary(CloudNote note) {
+    return '${note.wordCount} kata • ${note.charCount} karakter';
   }
 
   Future<void> _deleteNote(String noteId, {String? noteTitle}) async {
@@ -142,18 +130,11 @@ class _NotesScreenState extends State<NotesScreen> {
                   : () async {
                       setState(() => _isDeleting = true);
                       try {
-                        await FirebaseService().deleteNote(noteId);
+                        await _cloudNotesService.deleteNote(noteId);
 
                         if (mounted) {
                           Navigator.pop(context);
                           _showDeleteSuccessSnackbar(displayTitle);
-                        }
-                      } on FirebaseException catch (e) {
-                        if (mounted) {
-                          setState(() => _isDeleting = false);
-                          _showDeleteErrorDialog(
-                            e.message ?? 'Error tidak diketahui',
-                          );
                         }
                       } catch (e) {
                         if (mounted) {
@@ -256,7 +237,7 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
+      body: StreamBuilder<List<CloudNote>>(
         stream: _notesStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -392,11 +373,7 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   /// Build individual note card with enhanced styling
-  Widget _buildNoteCard(BuildContext context, Map<String, dynamic> note) {
-    final title = note['title'] as String? ?? 'Untitled';
-    final content = note['content'] as String? ?? '';
-    final noteId = note['id'] as String? ?? '';
-
+  Widget _buildNoteCard(BuildContext context, CloudNote note) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -407,9 +384,9 @@ class _NotesScreenState extends State<NotesScreen> {
             MaterialPageRoute(
               builder: (_) => AddNoteScreen(
                 user: widget.user,
-                noteId: noteId,
-                initialTitle: title,
-                initialContent: content,
+                noteId: note.id,
+                initialTitle: note.title,
+                initialContent: note.content,
               ),
             ),
           );
@@ -425,7 +402,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      title,
+                      note.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.deepPurple,
@@ -455,9 +432,9 @@ class _NotesScreenState extends State<NotesScreen> {
                             MaterialPageRoute(
                               builder: (_) => AddNoteScreen(
                                 user: widget.user,
-                                noteId: noteId,
-                                initialTitle: title,
-                                initialContent: content,
+                                noteId: note.id,
+                                initialTitle: note.title,
+                                initialContent: note.content,
                               ),
                             ),
                           );
@@ -475,7 +452,8 @@ class _NotesScreenState extends State<NotesScreen> {
                             const Text('Hapus'),
                           ],
                         ),
-                        onTap: () => _deleteNote(noteId, noteTitle: title),
+                        onTap: () =>
+                            _deleteNote(note.id, noteTitle: note.title),
                       ),
                     ],
                   ),
@@ -483,9 +461,9 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
               const SizedBox(height: 12),
               // Content preview
-              if (content.isNotEmpty)
+              if (note.content.isNotEmpty)
                 Text(
-                  content,
+                  note.content,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[700],
                     height: 1.5,
@@ -521,7 +499,7 @@ class _NotesScreenState extends State<NotesScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _formatDate(note['updatedAt']),
+                        _formatDate(note.updatedAt),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.grey[500],
                         ),
@@ -537,24 +515,19 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return '';
-    try {
-      final date = timestamp.toDate();
-      final now = DateTime.now();
-      final difference = now.difference(date);
+  /// Format date for display
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
 
-      if (difference.inDays == 0) {
-        return 'Hari ini';
-      } else if (difference.inDays == 1) {
-        return 'Kemarin';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays} hari lalu';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    } catch (e) {
-      return '';
+    if (difference.inDays == 0) {
+      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      return 'Kemarin';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} hari lalu';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
 }
