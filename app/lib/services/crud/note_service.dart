@@ -55,7 +55,8 @@ class NoteService {
   String? get currentUserEmail => _currentUserEmail;
 
   /// Check if user is authenticated
-  bool get isUserAuthenticated => _currentUserEmail != null && _currentUserEmail!.isNotEmpty;
+  bool get isUserAuthenticated =>
+      _currentUserEmail != null && _currentUserEmail!.isNotEmpty;
 
   Future<DatabaseUser> getOrCreateUser({required String email}) async {
     _validateUserAuthentication();
@@ -281,7 +282,7 @@ class NoteService {
     }
   }
 
-  Future<void>_ensureDbIsOpen() async {
+  Future<void> _ensureDbIsOpen() async {
     try {
       await open();
     } on DatabaseAlreadyOpenException {
@@ -291,7 +292,7 @@ class NoteService {
 
   Future<void> open({String? userEmail}) async {
     _validateUserAuthentication();
-    
+
     if (userEmail != null) {
       _verifyUserMatch(userEmail);
     }
@@ -308,14 +309,14 @@ class NoteService {
       await db.execute(createUserTable);
 
       await db.execute(createNoteTable);
-      
+
       // Ensure current user exists in database
       try {
         await getOrCreateUser(email: _currentUserEmail!);
       } catch (e) {
         rethrow;
       }
-      
+
       await _cacheNotes();
     } on MissingPlatformDirectoryException {
       throw Exception('Could not find the documents directory');
