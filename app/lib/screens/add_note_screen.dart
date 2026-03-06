@@ -61,11 +61,11 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   String _getChangesSummary() {
     final titleChanged = _titleController.text.trim() != _originalTitle;
     final contentChanged = _contentController.text.trim() != _originalContent;
-    
+
     List<String> changes = [];
     if (titleChanged) changes.add('Judul');
     if (contentChanged) changes.add('Isi');
-    
+
     return changes.join(' & ');
   }
 
@@ -280,9 +280,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
             Icon(Icons.info_outlined, color: Colors.blue[600]),
@@ -347,8 +345,8 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         _originalContent.isEmpty
                             ? '(kosong)'
                             : _originalContent.length > 100
-                                ? '${_originalContent.substring(0, 100)}...'
-                                : _originalContent,
+                            ? '${_originalContent.substring(0, 100)}...'
+                            : _originalContent,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.red[700],
                           decoration: TextDecoration.lineThrough,
@@ -369,8 +367,8 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         _contentController.text.trim().isEmpty
                             ? '(kosong)'
                             : _contentController.text.trim().length > 100
-                                ? '${_contentController.text.trim().substring(0, 100)}...'
-                                : _contentController.text.trim(),
+                            ? '${_contentController.text.trim().substring(0, 100)}...'
+                            : _contentController.text.trim(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.green[700],
                           fontWeight: FontWeight.w500,
@@ -473,7 +471,9 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         ),
                       )
                     : TextButton.icon(
-                        onPressed: (_isUpdateMode && !_hasChanges) ? null : _saveNote,
+                        onPressed: (_isUpdateMode && !_hasChanges)
+                            ? null
+                            : _saveNote,
                         icon: const Icon(Icons.save),
                         label: Text(_isUpdateMode ? 'Perbarui' : 'Simpan'),
                       ),
