@@ -6,15 +6,23 @@ import 'package:path_provider/path_provider.dart'
     show MissingPlatformDirectoryException, getApplicationDocumentsDirectory;
 import 'package:path/path.dart' show join;
 import 'crud_exceptions.dart';
+import '../firebase_service.dart';
 
 class NoteService {
   Database? _db;
   String? _currentUserEmail;
+  final FirebaseService _firebaseService = FirebaseService();
+
+  Timer? _syncTimer;
+  bool _isSyncing = false;
+  final Duration _syncInterval = const Duration(seconds: 30);
 
   List<DatabaseNote> _notes = [];
 
   final _notesStreamController =
       StreamController<List<DatabaseNote>>.broadcast();
+
+  final _syncStatusStreamController = StreamController<SyncStatus>.broadcast();
 
   /// Initialize NoteService with current user email
   NoteService({String? userEmail}) : _currentUserEmail = userEmail;
@@ -57,6 +65,148 @@ class NoteService {
   /// Check if user is authenticated
   bool get isUserAuthenticated =>
       _currentUserEmail != null && _currentUserEmail!.isNotEmpty;
+
+  /// Check if currently syncing
+  bool get isSyncing => _isSyncing;
+
+  /// Get sync status stream
+  Stream<SyncStatus> get syncStatusStream => _syncStatusStreamController.stream;
+
+  /// Start automatic background sync
+  void startAutoSync() {
+    if (_syncTimer != null) return; // Already running
+
+    _syncTimer = Timer.periodic(_syncInterval, (_) async {
+      await syncNotesToCloud();
+    });
+  }
+
+  /// Stop automatic background sync
+  void stopAutoSync() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+  }
+
+  /// Sync all unsynced notes to Cloud Firestore
+  Future<void> syncNotesToCloud() async {
+    if (_isSyncing || !isUserAuthenticated) return;
+
+    _isSyncing = true;
+    _syncStatusStreamController.add(
+      SyncStatus(issyncing: true, isSyncedCount: 0, unsyncedCount: 0),
+    );
+
+    try {
+      final db = _getDatabaseOrThrow();
+
+      // Get all unsynced notes
+      final unsyncedNotes = await db.query(
+        noteTable,
+        where: 'isSyncedWithCloud = ?',
+        whereArgs: [0],
+      );
+
+      int syncedCount = 0;
+      int failedCount = 0;
+
+      for (final noteData in unsyncedNotes) {
+        try {
+          await _syncSingleNote(DatabaseNote.fromRow(noteData));
+          syncedCount++;
+        } catch (e) {
+          failedCount++;
+        }
+      }
+
+      _isSyncing = false;
+      _syncStatusStreamController.add(
+        SyncStatus(
+          issyncing: false,
+          isSyncedCount: syncedCount,
+          unsyncedCount: failedCount,
+        ),
+      );
+    } catch (e) {
+      _isSyncing = false;
+      _syncStatusStreamController.add(
+        SyncStatus(issyncing: false, isSyncedCount: 0, unsyncedCount: 0),
+      );
+    }
+  }
+
+  /// Sync a single note to Cloud Firestore
+  Future<void> _syncSingleNote(DatabaseNote note) async {
+    _validateUserAuthentication();
+
+    try {
+      final db = _getDatabaseOrThrow();
+
+      // Get note details from database
+      final noteDetails = await db.query(
+        noteTable,
+        limit: 1,
+        where: 'id = ?',
+        whereArgs: [note.id],
+      );
+
+      if (noteDetails.isEmpty) {
+        throw CouldNotFindNote();
+      }
+
+      final noteData = noteDetails.first;
+      final text = noteData['text'] as String? ?? '';
+
+      // Extract title from first line or use default
+      final lines = text.split('\n');
+      final title = lines.isNotEmpty && lines.first.isNotEmpty
+          ? lines.first.substring(
+              0,
+              (lines.first.length > 100 ? 100 : lines.first.length),
+            )
+          : 'Untitled Note';
+
+      // Push to Firebase (create new note)
+      await _firebaseService.createNote(title: title, content: text);
+
+      // Mark as synced in local database
+      await _markAsSynced(note.id);
+    } catch (e) {
+      throw 'Failed to sync note ${note.id}: $e';
+    }
+  }
+
+  /// Mark a note as synced with cloud
+  Future<void> _markAsSynced(int noteId) async {
+    _validateUserAuthentication();
+
+    final db = _getDatabaseOrThrow();
+    final updatedCount = await db.update(
+      noteTable,
+      {'isSyncedWithCloud': 1},
+      where: 'id = ?',
+      whereArgs: [noteId],
+    );
+
+    if (updatedCount != 1) {
+      throw CouldNotUpdateNote();
+    }
+
+    // Update in-memory notes
+    final updatedNotes = _notes.map((note) {
+      if (note.id == noteId) {
+        return DatabaseNote(
+          id: note.id,
+          userId: note.userId,
+          text: note.text,
+          isSyncedWithCloud: true,
+        );
+      }
+      return note;
+    }).toList();
+
+    _notes = updatedNotes;
+    _notesStreamController.add(_notes);
+  }
 
   Future<DatabaseUser> getOrCreateUser({required String email}) async {
     _validateUserAuthentication();
@@ -183,18 +333,23 @@ class NoteService {
     final noteId = await db.insert(noteTable, {
       'userId': owner.id,
       'text': text,
-      'isSyncedWithCloud': 1,
+      'isSyncedWithCloud': 0, // Mark as unsynced for cloud
     });
 
     final note = DatabaseNote(
       id: noteId,
       userId: owner.id,
       text: text,
-      isSyncedWithCloud: true,
+      isSyncedWithCloud: false,
     );
 
     _notes.add(note);
     _notesStreamController.add(_notes);
+
+    // Attempt to sync to cloud immediately (fire and forget)
+    _syncSingleNote(note).catchError((e) {
+      // Sync failed but note is saved locally, will retry in background
+    });
 
     return note;
   }
@@ -266,6 +421,9 @@ class NoteService {
   }
 
   Future<void> close() async {
+    // Stop auto sync
+    stopAutoSync();
+
     final db = _db;
     if (db == null) {
       throw DatabaseIsNotOpen();
@@ -276,6 +434,7 @@ class NoteService {
       _notes = [];
       try {
         await _notesStreamController.close();
+        await _syncStatusStreamController.close();
       } catch (e) {
         // Already closed or error closing stream, ignore
       }
@@ -318,6 +477,14 @@ class NoteService {
       }
 
       await _cacheNotes();
+
+      // Start auto sync in background
+      startAutoSync();
+
+      // Perform initial sync immediately (fire and forget)
+      syncNotesToCloud().catchError((e) {
+        // Log sync error but don't block
+      });
     } on MissingPlatformDirectoryException {
       throw Exception('Could not find the documents directory');
     }
@@ -373,6 +540,33 @@ class DatabaseNote {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+/// Cloud sync status information
+@immutable
+class SyncStatus {
+  final bool issyncing;
+  final int isSyncedCount;
+  final int unsyncedCount;
+
+  const SyncStatus({
+    required this.issyncing,
+    required this.isSyncedCount,
+    required this.unsyncedCount,
+  });
+
+  String get summary {
+    if (issyncing) {
+      return 'Menyinkronkan catatan ke cloud...';
+    }
+    if (isSyncedCount > 0) {
+      return '$isSyncedCount catatan berhasil disinkronkan';
+    }
+    if (unsyncedCount > 0) {
+      return '$unsyncedCount catatan gagal disinkronkan';
+    }
+    return 'Semua catatan tersinkronkan';
+  }
 }
 
 const dbName = 'notes.db';
