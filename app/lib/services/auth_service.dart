@@ -128,6 +128,28 @@ class AuthService {
     }
   }
 
+  /// Send password reset email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException {
+      rethrow;
+    }
+  }
+
+  /// Update display name untuk current user
+  Future<void> updateDisplayName(String displayName) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(displayName);
+        await user.reload();
+      }
+    } on FirebaseAuthException {
+      rethrow;
+    }
+  }
+
   /// Parse Firebase Auth error ke Indonesian message
   String parseFirebaseAuthError(FirebaseAuthException error) {
     switch (error.code) {

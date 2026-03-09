@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app_initialization.dart';
 import 'auth_wrapper.dart';
+import 'bloc/auth_bloc.dart';
 import 'services/navigation_service.dart';
 import 'routes/app_router.dart';
 
@@ -22,16 +24,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Aplikasi Saya',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return BlocProvider(
+      create: (context) => AuthBloc(),
+      child: MaterialApp(
+        title: 'Aplikasi Saya',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const AuthWrapper(),
+        navigatorKey: navigatorKey,
+        onGenerateRoute: AppRouter.generateRoute,
+        debugShowCheckedModeBanner: false,
       ),
-      home: const AuthWrapper(),
-      navigatorKey: navigatorKey,
-      onGenerateRoute: AppRouter.generateRoute,
-      debugShowCheckedModeBanner: false,
     );
   }
 }
