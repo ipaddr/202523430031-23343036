@@ -6,6 +6,7 @@ import 'auth_wrapper.dart';
 import 'bloc/auth_bloc.dart';
 import 'bloc/routing_bloc.dart';
 import 'bloc/dialog_bloc.dart';
+import 'bloc/loading_bloc.dart';
 import 'services/navigation_service.dart';
 import 'routes/app_router.dart';
 
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (context) => AuthBloc()),
         BlocProvider(create: (context) => RoutingBloc()),
         BlocProvider(create: (context) => DialogBloc()),
+        BlocProvider(create: (context) => LoadingBloc()),
       ],
       child: MaterialApp(
         title: 'Aplikasi Saya',
