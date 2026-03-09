@@ -4,6 +4,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String emailVerification = '/email-verification';
+  static const String loginSuccess = '/login-success';
 
   // Main app routes
   static const String mainScreen = '/main';
