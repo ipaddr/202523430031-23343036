@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app_initialization.dart';
 import 'auth_wrapper.dart';
 import 'bloc/auth_bloc.dart';
+import 'bloc/routing_bloc.dart';
+import 'bloc/dialog_bloc.dart';
 import 'services/navigation_service.dart';
 import 'routes/app_router.dart';
 
@@ -24,8 +26,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthBloc(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => AuthBloc()),
+        BlocProvider(create: (context) => RoutingBloc()),
+        BlocProvider(create: (context) => DialogBloc()),
+      ],
       child: MaterialApp(
         title: 'Aplikasi Saya',
         theme: ThemeData(

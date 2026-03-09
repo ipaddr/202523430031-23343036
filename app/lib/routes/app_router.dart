@@ -53,6 +53,33 @@ class AppRouter {
           settings: settings,
         );
 
+      case '/login-success':
+        final user = settings.arguments as User;
+        // Determine if email verification is needed
+        final needsVerification = !user.emailVerified;
+
+        return MaterialPageRoute(
+          builder: (_) => needsVerification
+              ? EmailVerificationScreen(
+                  user: user,
+                  onVerificationSuccess: () {
+                    NavigationService().pushReplacementNamed(
+                      AppRoutes.mainScreen,
+                    );
+                  },
+                  onLogout: () {
+                    NavigationService().pushReplacementNamed(AppRoutes.login);
+                  },
+                )
+              : MainScreen(
+                  user: user,
+                  onLogout: () {
+                    NavigationService().pushReplacementNamed(AppRoutes.login);
+                  },
+                ),
+          settings: settings,
+        );
+
       case AppRoutes.mainScreen:
         final user = settings.arguments as User;
         return MaterialPageRoute(

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
-import 'login_success_screen.dart';
+import '../bloc/routing_bloc.dart';
+import '../bloc/dialog_bloc.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onSwitchToRegister;
@@ -17,49 +18,32 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
   bool _isHoveringRegisterLink = false;
-  late AnimationController _errorAnimationController;
-  late Animation<double> _errorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _errorAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _errorAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _errorAnimationController, curve: Curves.easeOut),
-    );
-  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _errorAnimationController.dispose();
     super.dispose();
   }
 
-  void _showError(String message) {
-    _errorAnimationController.forward();
-
-    // Auto-dismiss after 6 seconds unless it's a critical error
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted) {
-        _dismissError();
-      }
-    });
-  }
-
-  void _dismissError() {
-    _errorAnimationController.reverse();
+  /// Get snackbar color based on type
+  Color _getSnackBarColor(SnackBarType type) {
+    switch (type) {
+      case SnackBarType.success:
+        return Colors.green;
+      case SnackBarType.error:
+        return Colors.red;
+      case SnackBarType.warning:
+        return Colors.orange;
+      case SnackBarType.info:
+        return Colors.blue;
+    }
   }
 
   void _handleLogin() {
@@ -79,31 +63,22 @@ class _LoginScreenState extends State<LoginScreen>
   void _handleForgotPassword() {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      _showError('Masukkan email Anda untuk reset password');
+      context.read<DialogBloc>().add(
+        const DialogEventShowSnackBar(
+          message: 'Masukkan email Anda untuk reset password',
+          type: SnackBarType.warning,
+        ),
+      );
       return;
     }
 
-    // Show confirmation dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Text('Email reset password akan dikirim ke:\n$email'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<AuthBloc>().add(
-                AuthEventResetPassword(email: email),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('Kirim'),
-          ),
-        ],
+    // Show confirmation dialog via DialogBloc
+    context.read<DialogBloc>().add(
+      DialogEventShowConfirmation(
+        title: 'Reset Password',
+        message: 'Email reset password akan dikirim ke:\n$email',
+        confirmLabel: 'Kirim',
+        cancelLabel: 'Batal',
       ),
     );
   }
@@ -111,30 +86,98 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          // Handle errors
-          if (state is AuthStateError) {
-            _showError(state.message);
-          }
-          // Handle successful login navigation to success screen
-          else if (state is AuthStateEmailVerificationNeeded ||
-              state is AuthStateAuthenticated) {
-            // Show login success screen
-            if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => LoginSuccessScreen(
-                    user: state is AuthStateEmailVerificationNeeded
-                        ? state.user
-                        : (state as AuthStateAuthenticated).user,
-                    onContinue: widget.onLoginSuccess,
+      body: MultiBlocListener(
+        listeners: [
+          // Handle auth state changes
+          BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthStateError) {
+                // Show error as snackbar
+                context.read<DialogBloc>().add(
+                  DialogEventShowSnackBar(
+                    message: state.message,
+                    type: SnackBarType.error,
+                    duration: const Duration(seconds: 6),
                   ),
-                ),
-              );
-            }
-          }
-        },
+                );
+              } else if (state is AuthStateEmailVerificationNeeded ||
+                  state is AuthStateAuthenticated) {
+                // Navigate to success screen
+                final user = state is AuthStateEmailVerificationNeeded
+                    ? state.user
+                    : (state as AuthStateAuthenticated).user;
+
+                context.read<RoutingBloc>().add(
+                  RoutingEventNavigateToAndReplace(
+                    routeName: '/login-success',
+                    arguments: user,
+                  ),
+                );
+              }
+            },
+          ),
+          // Handle routing events
+          BlocListener<RoutingBloc, RoutingState>(
+            listener: (context, state) {
+              if (state is RoutingStateNavigateTo) {
+                Navigator.pushNamed(
+                  context,
+                  state.routeName,
+                  arguments: state.arguments,
+                );
+              } else if (state is RoutingStateNavigateToAndReplace) {
+                Navigator.pushReplacementNamed(
+                  context,
+                  state.routeName,
+                  arguments: state.arguments,
+                );
+              } else if (state is RoutingStatePopRoute) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          // Handle dialog events
+          BlocListener<DialogBloc, DialogState>(
+            listener: (context, state) {
+              if (state is DialogStateShowConfirmation) {
+                // Show confirmation dialog
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: Text(state.title),
+                    content: Text(state.message),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: Text(state.cancelLabel),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // Handle confirmation - trigger reset password event
+                          final email = _emailController.text.trim();
+                          context.read<AuthBloc>().add(
+                            AuthEventResetPassword(email: email),
+                          );
+                          Navigator.pop(dialogContext);
+                        },
+                        child: Text(state.confirmLabel),
+                      ),
+                    ],
+                  ),
+                );
+              } else if (state is DialogStateShowSnackBar) {
+                // Show snackbar
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: _getSnackBarColor(state.type),
+                    duration: state.duration,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -209,64 +252,6 @@ class _LoginScreenState extends State<LoginScreen>
                         return 'Password minimal 6 karakter';
                       }
                       return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Error Message
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      String? errorMessage;
-                      String? errorCode;
-                      if (state is AuthStateError) {
-                        errorMessage = state.message;
-                        errorCode = state.code;
-                      }
-
-                      return FadeTransition(
-                        opacity: _errorAnimation,
-                        child: errorMessage != null
-                            ? Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[50],
-                                  border: Border.all(color: Colors.red[300]!),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.error_outline,
-                                          color: Colors.red[600],
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            errorMessage,
-                                            style: TextStyle(
-                                              color: Colors.red[600],
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    // Show recovery actions based on error code
-                                    if (errorCode != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 12),
-                                        child: _buildErrorRecoveryActions(
-                                          errorCode,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      );
                     },
                   ),
                   const SizedBox(height: 24),
@@ -368,50 +353,5 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ),
     );
-  }
-
-  /// Build error recovery action buttons based on error code
-  Widget _buildErrorRecoveryActions(String errorCode) {
-    switch (errorCode) {
-      case 'wrong-password':
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton.icon(
-              onPressed: _handleForgotPassword,
-              icon: const Icon(Icons.vpn_key_outlined, size: 16),
-              label: const Text('Reset Password'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
-            ),
-          ],
-        );
-      case 'NETWORK_ERROR':
-      case 'TIMEOUT_ERROR':
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton.icon(
-              onPressed: _handleLogin,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Coba Lagi'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
-            ),
-          ],
-        );
-      case 'user-not-found':
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton.icon(
-              onPressed: widget.onSwitchToRegister,
-              icon: const Icon(Icons.person_add_outlined, size: 16),
-              label: const Text('Daftar Sekarang'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
-            ),
-          ],
-        );
-      default:
-        return const SizedBox.shrink();
-    }
   }
 }
