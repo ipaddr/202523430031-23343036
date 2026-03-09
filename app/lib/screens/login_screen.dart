@@ -50,8 +50,8 @@ class _LoginScreenState extends State<LoginScreen>
   void _showError(String message) {
     _errorAnimationController.forward();
 
-    // Auto-dismiss after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
+    // Auto-dismiss after 6 seconds unless it's a critical error
+    Future.delayed(const Duration(seconds: 6), () {
       if (mounted) {
         _dismissError();
       }
@@ -72,6 +72,38 @@ class _LoginScreenState extends State<LoginScreen>
       AuthEventLogin(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+      ),
+    );
+  }
+
+  void _handleForgotPassword() {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      _showError('Masukkan email Anda untuk reset password');
+      return;
+    }
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Text('Email reset password akan dikirim ke:\n$email'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<AuthBloc>().add(
+                AuthEventResetPassword(email: email),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Kirim'),
+          ),
+        ],
       ),
     );
   }
@@ -185,8 +217,10 @@ class _LoginScreenState extends State<LoginScreen>
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       String? errorMessage;
+                      String? errorCode;
                       if (state is AuthStateError) {
                         errorMessage = state.message;
+                        errorCode = state.code;
                       }
 
                       return FadeTransition(
@@ -199,22 +233,35 @@ class _LoginScreenState extends State<LoginScreen>
                                   border: Border.all(color: Colors.red[300]!),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Row(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Icons.error_outline,
-                                      color: Colors.red[600],
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        errorMessage,
-                                        style: TextStyle(
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
                                           color: Colors.red[600],
-                                          fontSize: 14,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            errorMessage,
+                                            style: TextStyle(
+                                              color: Colors.red[600],
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    // Show recovery actions based on error code
+                                    if (errorCode != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 12),
+                                        child: _buildErrorRecoveryActions(
+                                          errorCode,
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               )
@@ -265,6 +312,23 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   const SizedBox(height: 16),
 
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: _handleForgotPassword,
+                      child: Text(
+                        'Lupa Password?',
+                        style: TextStyle(
+                          color: Colors.deepPurple,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Register Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -304,5 +368,50 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ),
     );
+  }
+
+  /// Build error recovery action buttons based on error code
+  Widget _buildErrorRecoveryActions(String errorCode) {
+    switch (errorCode) {
+      case 'wrong-password':
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: _handleForgotPassword,
+              icon: const Icon(Icons.vpn_key_outlined, size: 16),
+              label: const Text('Reset Password'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
+            ),
+          ],
+        );
+      case 'NETWORK_ERROR':
+      case 'TIMEOUT_ERROR':
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: _handleLogin,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Coba Lagi'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
+            ),
+          ],
+        );
+      case 'user-not-found':
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: widget.onSwitchToRegister,
+              icon: const Icon(Icons.person_add_outlined, size: 16),
+              label: const Text('Daftar Sekarang'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
+            ),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
