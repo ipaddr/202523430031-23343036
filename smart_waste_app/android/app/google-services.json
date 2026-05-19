@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687933984929",
+    "project_id": "smartwaste-61572",
+    "storage_bucket": "smartwaste-61572.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687933984929:android:e7fc5e80d486d5e27ca0e0",
+        "android_client_info": {
+          "package_name": "com.example.smart_waste_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2UrJSUXAnxNuqoLt265qHBTcZh8wdR4A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

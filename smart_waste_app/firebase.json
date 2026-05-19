@@ -1,0 +1,24 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "smartwaste-61572",
+          "appId": "1:687933984929:android:e7fc5e80d486d5e27ca0e0",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "smartwaste-61572",
+          "configurations": {
+            "android": "1:687933984929:android:e7fc5e80d486d5e27ca0e0"
+          }
+        }
+      }
+    }
+  }
+}
