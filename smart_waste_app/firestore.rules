@@ -1,0 +1,179 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDocExists() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserRole() {
+      return currentUserDocExists()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "";
+    }
+
+    function isAdmin() {
+      return currentUserRole() == "admin";
+    }
+
+    function isPetugas() {
+      return currentUserRole() == "petugas";
+    }
+
+    function isStaff() {
+      return isAdmin() || isPetugas();
+    }
+
+    function isSelf(docId) {
+      return signedIn() && request.auth.uid == docId;
+    }
+
+    function isUserProfileDoc(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.role == "user";
+    }
+
+    function canReadUserDoc(userId) {
+      return isAdmin() || isSelf(userId) || (isPetugas() && isUserProfileDoc(userId));
+    }
+
+    function canCreateOwnUserDoc(userId) {
+      return isSelf(userId) &&
+        request.resource.data.uid == userId &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.role == "user" &&
+        request.resource.data.status == "Aktif";
+    }
+
+    function canSelfUpdateUserDoc() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "name",
+        "phone",
+        "profileImage",
+        "fcmToken",
+        "fcmTokens",
+        "fcmTokenUpdatedAt",
+        "updatedAt"
+      ]) ||
+      (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "name",
+          "phone",
+          "profileImage",
+          "emailVerified",
+          "fcmToken",
+          "fcmTokens",
+          "fcmTokenUpdatedAt",
+          "updatedAt"
+        ]) &&
+        request.resource.data.emailVerified == request.auth.token.email_verified
+      );
+    }
+
+    function canPetugasUpdateUserStats() {
+      return isPetugas() &&
+        resource.data.role == "user" &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "points",
+          "wasteCollected",
+          "totalPoints",
+          "totalRequests",
+          "totalWasteCollected",
+          "updatedAt"
+        ]);
+    }
+
+    function ownsPickupRequest(data) {
+      return signedIn() &&
+        (data.uid == request.auth.uid || data.user_id == request.auth.uid);
+    }
+
+    function pickupRequestAssignedToMe(data) {
+      return signedIn() &&
+        (data.officer_id == request.auth.uid ||
+         data.assigned_officer_id == request.auth.uid);
+    }
+
+    function ownsNotification(data) {
+      return signedIn() &&
+        (data.uid == request.auth.uid ||
+         data.userId == request.auth.uid ||
+         data.officerId == request.auth.uid);
+    }
+
+    match /users/{userId} {
+      allow get: if canReadUserDoc(userId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() || canCreateOwnUserDoc(userId);
+      allow update: if isAdmin() ||
+        (isSelf(userId) && canSelfUpdateUserDoc()) ||
+        canPetugasUpdateUserStats();
+      allow delete: if isAdmin();
+    }
+
+    match /officers/{officerId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    match /users/{userId}/notifications/{notificationId} {
+      allow get, list: if isAdmin() || isSelf(userId);
+      allow create: if isAdmin() || isPetugas() || isSelf(userId);
+      allow update, delete: if isAdmin() || isSelf(userId);
+    }
+
+    match /officers/{officerId}/notifications/{notificationId} {
+      allow get, list: if isAdmin() || isSelf(officerId);
+      allow create: if isAdmin() || isSelf(officerId);
+      allow update, delete: if isAdmin() || isSelf(officerId);
+    }
+
+    match /pickup_requests/{requestId} {
+      allow get, list: if isAdmin() ||
+        ownsPickupRequest(resource.data) ||
+        pickupRequestAssignedToMe(resource.data);
+      allow create: if isAdmin() ||
+        (ownsPickupRequest(request.resource.data) &&
+          request.resource.data.status == "pending");
+      allow update: if isAdmin() || pickupRequestAssignedToMe(resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if isStaff() || ownsNotification(resource.data);
+      allow create: if isStaff() || ownsNotification(request.resource.data);
+      allow update, delete: if isAdmin() || ownsNotification(resource.data);
+    }
+
+    match /waste_records/{recordId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() ||
+        (signedIn() && request.resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin() ||
+        (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    match /schedules/{scheduleId} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /waste_categories/{categoryId} {
+      allow get, list: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (
+          isPetugas() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "total_weight",
+            "updatedAt"
+          ])
+        );
+    }
+  }
+}
