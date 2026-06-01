@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/firestore_service.dart';
+import '../../services/tflite_service.dart';
 import '../../utils/constants.dart';
 
 class AdminWasteDataScreen extends StatefulWidget {
@@ -14,6 +16,16 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
   late AnimationController _animationController;
   String selectedTab = 'Kategori';
   final _firestoreService = FirestoreService();
+  static const List<Map<String, String>> _defaultCategories = [
+    {
+      'name': 'Organic',
+      'description': 'Sampah mudah terurai seperti tanaman dan sisa makanan',
+    },
+    {
+      'name': 'Anorganic',
+      'description': 'Sampah sulit terurai seperti plastik, kaca, dan logam',
+    },
+  ];
 
   @override
   void initState() {
@@ -83,21 +95,37 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
                         color: AppColors.white,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: _showAddWasteDialog,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: AppColors.white),
+                      onSelected: (value) {
+                        if (value == 'add') {
+                          _showAddWasteDialog();
+                        } else if (value == 'init') {
+                          _showInitializeDataDialog();
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem<String>(
+                          value: 'add',
+                          child: Row(
+                            children: [
+                              Icon(Icons.add, size: 20),
+                              SizedBox(width: 8),
+                              Text('Tambah Data'),
+                            ],
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.add,
-                          color: AppColors.white,
-                          size: 20,
+                        const PopupMenuItem<String>(
+                          value: 'init',
+                          child: Row(
+                            children: [
+                              Icon(Icons.cloud_download, size: 20),
+                              SizedBox(width: 8),
+                              Text('Inisialisasi Data Default'),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -204,6 +232,11 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
     return {
       'id': data['id'],
       'name': name,
+      'description': (data['description'] ?? '').toString(),
+      'category': (data['category'] ?? '').toString(),
+      'modelLabel': (data['model_label'] ?? '').toString(),
+      'points': _asInt(data['points']),
+      'isTfliteLabel': data['is_tflite_label'] == true,
       'icon': _iconForWaste(name),
       'total': '${totalWeight.toStringAsFixed(1)} kg',
       'percentage': '${percentage.clamp(0, 100)}%',
@@ -227,95 +260,383 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
   IconData _iconForWaste(String name) {
     final lowerName = name.toLowerCase();
     if (lowerName.contains('b3')) return Icons.warning;
+    if (lowerName.contains('plastic') || lowerName.contains('plastik')) {
+      return Icons.local_drink;
+    }
+    if (lowerName.contains('metal') || lowerName.contains('logam')) {
+      return Icons.build_circle;
+    }
+    if (lowerName.contains('textile') || lowerName.contains('tekstil')) {
+      return Icons.checkroom;
+    }
+    if (lowerName.contains('food') || lowerName.contains('vegetation')) {
+      return Icons.eco;
+    }
     if (lowerName.contains('organik') && !lowerName.contains('anorganik')) {
       return Icons.eco;
     }
-    if (lowerName.contains('kertas')) return Icons.description;
-    if (lowerName.contains('kaca')) return Icons.local_drink;
+    if (lowerName.contains('paper') ||
+        lowerName.contains('cardboard') ||
+        lowerName.contains('kertas')) {
+      return Icons.description;
+    }
+    if (lowerName.contains('glass') || lowerName.contains('kaca')) {
+      return Icons.wine_bar;
+    }
     return Icons.recycling;
   }
 
   Color _colorForWaste(String name) {
     final lowerName = name.toLowerCase();
     if (lowerName.contains('b3')) return Colors.red;
+    if (lowerName.contains('plastic') || lowerName.contains('plastik')) {
+      return Colors.blue;
+    }
+    if (lowerName.contains('metal') || lowerName.contains('logam')) {
+      return Colors.blueGrey;
+    }
+    if (lowerName.contains('glass') || lowerName.contains('kaca')) {
+      return Colors.cyan;
+    }
+    if (lowerName.contains('textile') || lowerName.contains('tekstil')) {
+      return Colors.purple;
+    }
+    if (lowerName.contains('food') || lowerName.contains('vegetation')) {
+      return Colors.green;
+    }
     if (lowerName.contains('organik') && !lowerName.contains('anorganik')) {
       return Colors.green;
     }
-    if (lowerName.contains('kertas')) return Colors.orange;
+    if (lowerName.contains('paper') ||
+        lowerName.contains('cardboard') ||
+        lowerName.contains('kertas')) {
+      return Colors.orange;
+    }
     return Colors.blue;
   }
 
   Future<void> _showAddWasteDialog() async {
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
+    final pointsController = TextEditingController(text: '10');
     final kind = selectedTab == 'Kategori' ? 'kategori' : 'jenis';
+    String selectedCategory = kind == 'kategori' ? '' : 'Anorganic';
 
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Tambah $selectedTab'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'Nama $selectedTab',
-                  hintText: 'Contoh: Sampah Organik',
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Deskripsi',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
-
-              final success = await _firestoreService.createWasteCategory(
-                name: name,
-                kind: kind,
-                description: descriptionController.text.trim(),
-              );
-
-              if (!dialogContext.mounted) return;
-              Navigator.pop(dialogContext);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? '$selectedTab berhasil ditambahkan'
-                        : 'Gagal menambahkan $selectedTab',
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return AlertDialog(
+                title: Text('Tambah $selectedTab'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: 'Nama $selectedTab',
+                          hintText: kind == 'kategori'
+                              ? 'Contoh: Organic'
+                              : 'Contoh: Tisu',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (kind == 'jenis') ...[
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedCategory,
+                          decoration: const InputDecoration(
+                            labelText: 'Kategori',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const ['Organic', 'Anorganic']
+                              .map(
+                                (category) => DropdownMenuItem(
+                                  value: category,
+                                  child: Text(category),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setDialogState(() => selectedCategory = value);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: pointsController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Poin',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      TextField(
+                        controller: descriptionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Deskripsi',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
                   ),
-                  backgroundColor: success ? Colors.green : Colors.red,
                 ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext);
+                      }
+                    },
+                    child: const Text('Batal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+
+                      try {
+                        final success =
+                            await _firestoreService.createWasteCategory(
+                          name: name,
+                          kind: kind,
+                          description: descriptionController.text.trim(),
+                          category: kind == 'jenis' ? selectedCategory : '',
+                          points: kind == 'jenis'
+                              ? _asInt(pointsController.text.trim())
+                              : 0,
+                        );
+
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        if (!mounted) return;
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? '$selectedTab berhasil ditambahkan'
+                                  : 'Gagal menambahkan $selectedTab',
+                            ),
+                            backgroundColor:
+                                success ? Colors.green : Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Simpan'),
+                  ),
+                ],
               );
             },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
+          );
+        },
+      );
+    } finally {
+      nameController.dispose();
+      descriptionController.dispose();
+      pointsController.dispose();
+    }
+  }
 
-    nameController.dispose();
-    descriptionController.dispose();
+  Future<void> _showInitializeDataDialog() async {
+    final tfliteWastes = await _loadTfliteWasteDefaults();
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Inisialisasi Data Default'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tambahkan kategori dan jenis sampah sesuai assets/labels.txt dan model TFLite?',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                ...tfliteWastes.map((waste) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '- ${waste['name']}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+              },
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+
+                // Show progress dialog
+                if (!mounted) return;
+
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => const AlertDialog(
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 16),
+                        Text('Menambahkan data...'),
+                      ],
+                    ),
+                  ),
+                );
+
+                try {
+                  int successCount = 0;
+                  for (final category in _defaultCategories) {
+                    final success = await _firestoreService.createWasteCategory(
+                      name: category['name']!,
+                      kind: 'kategori',
+                      description: category['description']!,
+                    );
+                    if (success) successCount++;
+                  }
+
+                  for (final waste in tfliteWastes) {
+                    final success = await _firestoreService.createWasteCategory(
+                      name: waste['name']!,
+                      kind: 'jenis',
+                      description: waste['description']!,
+                      category: waste['category']!,
+                      modelLabel: waste['modelLabel']!,
+                      points: int.tryParse(waste['points']!) ?? 0,
+                      isTfliteLabel: true,
+                    );
+                    if (success) successCount++;
+                  }
+
+                  // Pop loading dialog
+                  if (mounted) {
+                    Navigator.pop(context);
+                  }
+
+                  // Show result
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Berhasil menyinkronkan $successCount data sampah',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Tambahkan'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('Error showing dialog: $e');
+    }
+  }
+
+  Future<List<Map<String, String>>> _loadTfliteWasteDefaults() async {
+    final labelsData = await rootBundle.loadString('assets/labels.txt');
+    final labels = labelsData
+        .split('\n')
+        .map((label) => label.trim())
+        .where((label) => label.isNotEmpty)
+        .toList();
+
+    return labels.map((label) {
+      return {
+        'name': label,
+        'modelLabel': label,
+        'category': _categoryForTfliteLabel(label),
+        'points': _pointsForTfliteLabel(label).toString(),
+        'description': _descriptionForTfliteLabel(label),
+      };
+    }).toList();
+  }
+
+  String _categoryForTfliteLabel(String label) {
+    final key = label.toLowerCase().trim();
+    return TFLiteService.wasteCategoryMap[key] ??
+        TFLiteService.wasteCategoryMap[key.replaceAll(' ', '_')] ??
+        'Anorganic';
+  }
+
+  int _pointsForTfliteLabel(String label) {
+    final key = label.toLowerCase().trim();
+    return TFLiteService.wastePointsMap[key] ??
+        TFLiteService.wastePointsMap[key.replaceAll(' ', '_')] ??
+        10;
+  }
+
+  String _descriptionForTfliteLabel(String label) {
+    switch (label.toLowerCase().trim()) {
+      case 'vegetation':
+        return 'Sampah organik dari tanaman, daun, dan ranting.';
+      case 'textile trash':
+        return 'Sampah kain, pakaian, dan material tekstil.';
+      case 'plastic':
+        return 'Sampah plastik seperti botol, kemasan, dan kantong.';
+      case 'paper':
+        return 'Sampah kertas, termasuk tisu dan lembaran kertas.';
+      case 'miscellaneous trash':
+        return 'Sampah campuran yang tidak masuk kategori utama.';
+      case 'metal':
+        return 'Sampah logam seperti kaleng dan benda berbahan metal.';
+      case 'glass':
+        return 'Sampah kaca seperti botol atau pecahan kaca.';
+      case 'cardboard':
+        return 'Sampah kardus dan karton.';
+      case 'food organics':
+        return 'Sampah organik dari sisa makanan.';
+      default:
+        return 'Jenis sampah tambahan.';
+    }
   }
 
   Widget _buildTab(String label) {
@@ -487,6 +808,16 @@ class _WasteItemCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if ((item['category'] ?? '').toString().isNotEmpty)
+                      item['category'],
+                    if ((item['points'] ?? 0) > 0) '${item['points']} poin',
+                    if (item['isTfliteLabel'] == true) 'TFLite',
+                  ].join(' - '),
+                  style: const TextStyle(fontSize: 12, color: AppColors.grey),
                 ),
               ],
             ),

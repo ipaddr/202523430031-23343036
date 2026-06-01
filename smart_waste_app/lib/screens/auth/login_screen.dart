@@ -17,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen>
   late TextEditingController _passwordController;
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String _selectedRole = 'user';
 
   late AnimationController _animationController;
   late List<Animation<double>> _staggeredAnimations;
@@ -34,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     _staggeredAnimations = List.generate(
-      8,
+      6,
       (index) => Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
           parent: _animationController,
@@ -200,23 +199,6 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         _buildAnimatedItem(
                           index: 1,
-                          child: const Text(
-                            'Pilih Role',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildAnimatedItem(
-                          index: 2,
-                          child: _buildRoleSelector(),
-                        ),
-                        const SizedBox(height: 32),
-                        _buildAnimatedItem(
-                          index: 3,
                           child: _buildInputField(
                             controller: _emailController,
                             label: 'Email / Nomor HP',
@@ -226,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: 24),
                         _buildAnimatedItem(
-                          index: 4,
+                          index: 2,
                           child: _buildInputField(
                             controller: _passwordController,
                             label: 'Password',
@@ -240,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         _buildAnimatedItem(
-                          index: 5,
+                          index: 3,
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -261,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: 24),
                         _buildAnimatedItem(
-                          index: 6,
+                          index: 4,
                           child: _buildLoginButton(),
                         ),
                       ],
@@ -271,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 32),
 
                   _buildAnimatedItem(
-                    index: 7,
+                    index: 5,
                     child: Column(
                       children: [
                         const Text(
@@ -379,58 +361,6 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
         child: child,
-      ),
-    );
-  }
-
-  Widget _buildRoleSelector() {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          _buildRoleTab('User', 'user'),
-          _buildRoleTab('Petugas', 'petugas'),
-          _buildRoleTab('Admin', 'admin'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoleTab(String label, String value) {
-    final isSelected = _selectedRole == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedRole = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(33),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? AppColors.primary : const Color(0xFF64748B),
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              fontSize: 13,
-            ),
-          ),
-        ),
       ),
     );
   }

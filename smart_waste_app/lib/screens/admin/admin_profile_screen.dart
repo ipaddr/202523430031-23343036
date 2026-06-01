@@ -156,7 +156,7 @@ class AdminProfileScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Statistik Anda
                     const Text(
@@ -164,7 +164,9 @@ class AdminProfileScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
                     GridView.count(
@@ -204,7 +206,9 @@ class AdminProfileScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -390,7 +394,10 @@ class _StatCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.1)],
+                colors: [
+                  color.withValues(alpha: 0.3),
+                  color.withValues(alpha: 0.1),
+                ],
               ),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),

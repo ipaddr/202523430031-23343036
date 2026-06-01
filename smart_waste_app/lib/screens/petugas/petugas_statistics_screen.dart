@@ -230,9 +230,6 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
   }
 
   Widget _buildBarChart() {
-    final List<double> values = [15, 22, 18, 25, 20, 15, 10];
-    final List<String> days = ['S', 'S', 'R', 'K', 'J', 'S', 'M'];
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -240,79 +237,16 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
       ),
-      child: Column(
-        children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Volume Sampah (kg)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              Icon(Icons.more_horiz, color: Color(0xFF94A3B8), size: 20),
-            ],
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 180,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(values.length, (index) {
-                return _buildBarItem(days[index], values[index], index);
-              }),
-            ),
-          ),
-        ],
+      child: const Center(
+        child: Text(
+          'Grafik akan ditampilkan di sini\n(Data dari Firebase)',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
       ),
     );
   }
 
-  Widget _buildBarItem(String label, double value, int index) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        ScaleTransition(
-          scale: CurvedAnimation(
-            parent: _animationController,
-            curve: Interval(
-              index * 0.1,
-              0.6 + (index * 0.1),
-              curve: Curves.elasticOut,
-            ),
-          ),
-          child: Container(
-            width: 28,
-            height: (value / 30) * 140,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.primary.withValues(alpha: 0.8),
-                  AppColors.primary.withValues(alpha: 0.4),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF94A3B8),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildWasteBreakdown() {
     return Container(
@@ -380,7 +314,7 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
               height: 8,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),

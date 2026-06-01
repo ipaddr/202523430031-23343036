@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 import '../../services/request_assignment_service.dart';
 
@@ -85,16 +86,16 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
         final req = {
-          'id': widget.requestId,
-          'name': data['user_name'] ?? data['name'] ?? 'Unknown',
-          'address': data['address'] ?? data['location'] ?? '',
-          'time': data['schedule_time'] ?? 'Not set',
-          'status': data['status'] ?? 'pending',
-          'type': data['waste_type'] ?? data['wasteType'] ?? 'Unknown',
-          'volume': data['weight']?.toString() ?? 'Unknown',
-          'phone': data['user_phone'] ?? data['phone'] ?? '',
-          'notes': data['notes'] ?? '',
-          'user_id': data['user_id'] ?? data['uid'],
+          'id': _text(widget.requestId),
+          'name': _text(data['user_name'] ?? data['name'], 'Unknown'),
+          'address': _text(data['address'] ?? data['location']),
+          'time': _text(data['schedule_time'], 'Not set'),
+          'status': _text(data['status'], 'pending'),
+          'type': _text(data['waste_type'] ?? data['wasteType'], 'Unknown'),
+          'volume': _text(data['weight'], 'Unknown'),
+          'phone': _text(data['user_phone'] ?? data['phone']),
+          'notes': _text(data['notes']),
+          'user_id': _text(data['user_id'] ?? data['uid'] ?? data['userId']),
           'lat': data['user_lat'] ?? data['latitude'] ?? 0.0,
           'lon': data['user_lon'] ?? data['longitude'] ?? 0.0,
         };
@@ -105,24 +106,35 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
   }
 
   Widget _buildWithStaticData() {
-    final req =
-        widget.request ??
-        {
-          'id': 'REQ-001',
-          'name': 'Andi Saputra',
-          'address': 'Jl. Merdeka No. 12, Subang',
-          'time': 'Pagi (07:00 - 09:00)',
-          'status': 'pending',
-          'type': 'Sampah Organik',
-          'volume': '5 - 10 kg',
-          'phone': '082123456789',
-          'notes': 'Sampah dari rumah',
-          'user_id': 'user123',
-          'lat': -6.2088,
-          'lon': 107.0669,
-        };
+    final req = _normalizeRequest(widget.request ?? {});
 
     return _buildDetailScreen(req);
+  }
+
+  Map<String, dynamic> _normalizeRequest(Map<String, dynamic> data) {
+    return {
+      'id': _text(data['id'] ?? data['request_id']),
+      'name': _text(data['user_name'] ?? data['name'], 'Unknown'),
+      'address': _text(data['address'] ?? data['location']),
+      'time': _text(data['schedule_time'] ?? data['time'], 'Not set'),
+      'status': _text(data['status'], 'pending'),
+      'type': _text(
+        data['waste_type'] ?? data['wasteType'] ?? data['type'],
+        'Unknown',
+      ),
+      'volume': _text(data['weight'] ?? data['volume'], 'Unknown'),
+      'phone': _text(data['user_phone'] ?? data['phone']),
+      'notes': _text(data['notes']),
+      'user_id': _text(data['user_id'] ?? data['uid'] ?? data['userId']),
+      'lat': data['user_lat'] ?? data['latitude'] ?? 0.0,
+      'lon': data['user_lon'] ?? data['longitude'] ?? 0.0,
+    };
+  }
+
+  String _text(dynamic value, [String fallback = '']) {
+    if (value == null) return fallback;
+    final text = value.toString();
+    return text.isEmpty ? fallback : text;
   }
 
   Widget _buildDetailScreen(Map<String, dynamic> req) {
@@ -417,9 +429,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    onTap: () {
-                                      // TODO: Open Google Maps
-                                    },
+                                    onTap: () =>
+                                        _openGoogleMaps(req['address']),
                                     borderRadius: BorderRadius.circular(
                                       AppRadius.lg,
                                     ),
@@ -583,7 +594,10 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
         child: InkWell(
           onTap: _isLoading
               ? null
-              : () => _showRejectDialog(req['id'], req['user_id']),
+              : () => _showRejectDialog(
+                    _text(req['id']),
+                    _text(req['user_id']),
+                  ),
           borderRadius: BorderRadius.circular(AppRadius.lg),
           child: const Center(
             child: Text(
@@ -609,8 +623,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
               CurvedAnimation(
                 parent: _animationController,
                 curve: Interval(
-                  0.4 + (index * 0.1),
-                  0.8 + (index * 0.1),
+                  (0.4 + (index * 0.1)).clamp(0.0, 1.0),
+                  (0.8 + (index * 0.1)).clamp(0.0, 1.0),
                   curve: Curves.easeOutCubic,
                 ),
               ),
@@ -682,12 +696,84 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
     }
   }
 
+  /// Open address in Google Maps
+  Future<void> _openGoogleMaps(String address) async {
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alamat tidak tersedia'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final String encodedAddress = Uri.encodeComponent(address);
+      final String googleMapsUrl =
+          'https://www.google.com/maps/search/$encodedAddress';
+
+      if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
+        await launchUrl(
+          Uri.parse(googleMapsUrl),
+          mode: LaunchMode.externalApplication,
+        );
+        debugPrint('✅ Opened Google Maps for: $address');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps'),
+            backgroundColor: Color(0xFFFF6B6B),
+          ),
+        );
+        debugPrint('❌ Cannot launch Google Maps');
+      }
+    } catch (e) {
+      debugPrint('❌ Error opening Google Maps: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: const Color(0xFFFF6B6B),
+        ),
+      );
+    }
+  }
+
   void _showAssignOfficerDialog(Map<String, dynamic> req) async {
     final officers = await _assignmentService.getAvailableOfficers();
 
     if (officers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak ada petugas yang tersedia')),
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('❌ Tidak Ada Petugas Tersedia'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Tidak dapat menyetujui request karena:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '• Tidak ada petugas dengan status Aktif\n'
+                  '• Semua petugas sudah penuh dengan tugas (max 5 tugas)\n'
+                  '• Silakan tambahkan petugas baru atau tunggu sampai ada yang selesai',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        },
       );
       return;
     }
@@ -794,8 +880,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                     if (selectedOfficerId != null) {
                       Navigator.pop(context);
                       await _approveAndAssign(
-                        req['id'],
-                        req['user_id'],
+                        _text(req['id']),
+                        _text(req['user_id']),
                         selectedOfficerId!,
                         estimatedTime,
                       );
@@ -817,6 +903,16 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
     String officerId,
     int estimatedTime,
   ) async {
+    if (requestId.isEmpty || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: ID request atau user tidak ditemukan'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final result = await _assignmentService.approveAndAssignRequest(
@@ -826,9 +922,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
       estimatedArrivalTime: estimatedTime,
     );
 
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -839,13 +934,54 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
       );
       Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('❌ Gagal Menyetujui Request'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(result['message'], style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 12),
+                const Text(
+                  'Kemungkinan penyebab:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '• Tidak ada petugas tersedia\n'
+                  '• Semua petugas sudah penuh\n'
+                  '• Masalah koneksi ke database\n'
+                  '• Masalah permission',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        },
       );
     }
   }
 
   void _showRejectDialog(String requestId, String userId) {
+    if (requestId.isEmpty || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: ID request atau user tidak ditemukan'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
     final reasonController = TextEditingController();
 
     showDialog(
@@ -911,9 +1047,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
       reason: reason,
     );
 
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -14,13 +14,7 @@ class _PetugasPickupProcessScreenState extends State<PetugasPickupProcessScreen>
   late AnimationController _animationController;
   late List<Animation<double>> _staggeredAnimations;
 
-  final List<Map<String, dynamic>> _steps = [
-    {'title': 'Tugas Diterima', 'status': 'completed', 'time': '08:45'},
-    {'title': 'Menuju Lokasi', 'status': 'completed', 'time': '09:00'},
-    {'title': 'Tiba di Lokasi', 'status': 'completed', 'time': '09:15'},
-    {'title': 'Proses Pengambilan', 'status': 'active', 'time': 'Sekarang'},
-    {'title': 'Penyelesaian', 'status': 'pending', 'time': '--:--'},
-  ];
+  // Steps akan diambil dari Firebase atau real-time status
 
   @override
   void initState() {
@@ -300,112 +294,12 @@ class _PetugasPickupProcessScreenState extends State<PetugasPickupProcessScreen>
   }
 
   Widget _buildStepper() {
-    return Column(
-      children: List.generate(_steps.length, (index) {
-        final step = _steps[index];
-        final isLast = index == _steps.length - 1;
-        final status = step['status'];
-
-        return IntrinsicHeight(
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 500),
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: status == 'completed'
-                          ? AppColors.primary
-                          : (status == 'active' ? Colors.white : Colors.white),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: status == 'pending'
-                            ? const Color(0xFFE2E8F0)
-                            : AppColors.primary,
-                        width: 2,
-                      ),
-                      boxShadow: status == 'active'
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Center(
-                      child: status == 'completed'
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            )
-                          : (status == 'active'
-                                ? Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  )
-                                : null),
-                    ),
-                  ),
-                  if (!isLast)
-                    Expanded(
-                      child: Container(
-                        width: 2,
-                        color: status == 'completed'
-                            ? AppColors.primary
-                            : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          step['title'],
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: status == 'active'
-                                ? FontWeight.bold
-                                : FontWeight.w600,
-                            color: status == 'pending'
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF1E293B),
-                          ),
-                        ),
-                        Text(
-                          step['time'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: status == 'active'
-                                ? AppColors.primary
-                                : const Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
+    return const Center(
+      child: Text(
+        'Tahapan akan ditampilkan di sini\n(Data dari Firebase)',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Color(0xFF94A3B8)),
+      ),
     );
   }
 

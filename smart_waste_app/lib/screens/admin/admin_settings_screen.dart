@@ -103,7 +103,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Akun Section
                     const Text(
@@ -111,22 +111,30 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    _buildAnimatedSettingItem(
-                      0,
-                      'Ubah Password',
-                      'Perbarui password akun Anda',
-                      Icons.vpn_key,
-                      () {},
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAnimatedSettingItem(
+                        0,
+                        'Ubah Password',
+                        'Perbarui password akun Anda',
+                        Icons.vpn_key,
+                        () {},
+                      ),
                     ),
-                    _buildAnimatedSettingItem(
-                      1,
-                      'Informasi Akun',
-                      'Lihat informasi profil Anda',
-                      Icons.account_circle,
-                      () {},
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAnimatedSettingItem(
+                        1,
+                        'Informasi Akun',
+                        'Lihat informasi profil Anda',
+                        Icons.account_circle,
+                        () {},
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -136,108 +144,123 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0.5, 0),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: _animationController,
-                              curve: const Interval(
-                                0.4 + 0.3,
-                                0.8 + 0.3,
-                                curve: Curves.easeOutCubic,
+                    SizedBox(
+                      width: double.infinity,
+                      child: SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0.5, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: _animationController,
+                                curve: const Interval(
+                                  0.4 + 0.3,
+                                  0.8 + 0.3,
+                                  curve: Curves.easeOutCubic,
+                                ),
                               ),
                             ),
+                        child: Container(
+                          padding: const EdgeInsets.all(AppPadding.lg),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                blurRadius: 12,
+                              ),
+                            ],
                           ),
-                      child: Container(
-                        padding: const EdgeInsets.all(AppPadding.lg),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Notifikasi Push',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Notifikasi Push',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Terima notifikasi tentang request',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.grey,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Terima notifikasi tentang request',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Switch(
-                                  value: notificationsEnabled,
-                                  onChanged: (value) => setState(
-                                    () => notificationsEnabled = value,
                                   ),
-                                  activeColor: AppColors.primary,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Divider(
-                              color: AppColors.grey.withValues(alpha: 0.2),
-                              height: 1,
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Email Alert',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
+                                  Switch(
+                                    value: notificationsEnabled,
+                                    onChanged: (value) => setState(
+                                      () => notificationsEnabled = value,
                                     ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Terima email notifikasi penting',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.grey,
-                                      ),
+                                    activeColor: AppColors.primary,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Divider(
+                                color: AppColors.grey.withValues(alpha: 0.2),
+                                height: 1,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Email Alert',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Terima email notifikasi penting',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.grey,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                Switch(
-                                  value: emailAlerts,
-                                  onChanged: (value) =>
-                                      setState(() => emailAlerts = value),
-                                  activeColor: AppColors.primary,
-                                ),
-                              ],
-                            ),
-                          ],
+                                  ),
+                                  Switch(
+                                    value: emailAlerts,
+                                    onChanged: (value) =>
+                                        setState(() => emailAlerts = value),
+                                    activeColor: AppColors.primary,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -249,29 +272,52 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    _buildAnimatedSettingItem(
-                      3,
-                      'Bahasa',
-                      selectedLanguage,
-                      Icons.language,
-                      () {},
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAnimatedSettingItem(
+                        3,
+                        'Bahasa',
+                        selectedLanguage,
+                        Icons.language,
+                        () {},
+                      ),
                     ),
-                    _buildAnimatedSettingItem(
-                      4,
-                      'Tentang Aplikasi',
-                      'SmartWaste v2.1.0',
-                      Icons.info,
-                      () {},
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAnimatedSettingItem(
+                        4,
+                        'Tentang Aplikasi',
+                        'SmartWaste v2.1.0',
+                        Icons.info,
+                        () {},
+                      ),
                     ),
-                    _buildAnimatedSettingItem(
-                      5,
-                      'Bantuan & FAQ',
-                      'Pelajari lebih lanjut',
-                      Icons.help,
-                      () {},
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAnimatedSettingItem(
+                        5,
+                        'Bantuan & FAQ',
+                        'Pelajari lebih lanjut',
+                        Icons.help,
+                        () {},
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Database Setup Section
+                    const Text(
+                      '🔧 Setup Database',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.black,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
 

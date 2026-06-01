@@ -49,6 +49,7 @@ dependencies:
   firebase_storage: ^13.4.0
   google_sign_in: ^7.2.0
   geolocator: ^14.0.2
+  url_launcher: ^6.2.0
 
   # Maps & Location
   google_maps_flutter: ^2.7.0

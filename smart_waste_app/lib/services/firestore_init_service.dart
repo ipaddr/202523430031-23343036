@@ -14,64 +14,6 @@ class FirestoreInitService {
     _firestore = FirebaseFirestore.instance;
   }
 
-  /// Initialize sample pickup requests for testing/development
-  Future<bool> initializeSamplePickupRequests() async {
-    try {
-      // Sample data dengan koordinat Jakarta area
-      final sampleRequests = [
-        {
-          'uid': 'user_123',
-          'user_id': 'user_123', // Sesuaikan dengan user ID
-          'status': 'in_progress',
-          'wasteType': 'Anorganik',
-          'waste_type': 'Anorganik',
-          'weight': '10 kg',
-          'location': 'Jl. Ahmad Yani No. 45',
-          'address': 'Jl. Ahmad Yani No. 45',
-          'truck_location': {'latitude': -6.2088, 'longitude': 106.8456},
-          'driver_name': 'Budi Santoso',
-          'driver_phone': '08123456789',
-          'estimated_arrival_time': '15 Menit',
-          'notes': 'Sampah plastik dan kertas',
-          'createdAt': FieldValue.serverTimestamp(),
-          'created_at': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-        },
-        {
-          'uid': 'user_456',
-          'user_id': 'user_456',
-          'status': 'pending',
-          'wasteType': 'Organik',
-          'waste_type': 'Organik',
-          'weight': '5 kg',
-          'location': 'Jl. Sudirman No. 12',
-          'address': 'Jl. Sudirman No. 12',
-          'truck_location': {'latitude': -6.2155, 'longitude': 106.8270},
-          'driver_name': 'Ahmad Ridho',
-          'driver_phone': '08987654321',
-          'estimated_arrival_time': '20 Menit',
-          'notes': 'Sampah dapur organik',
-          'createdAt': FieldValue.serverTimestamp(),
-          'created_at': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-        },
-      ];
-
-      // Tambahkan sample requests ke collection
-      for (var request in sampleRequests) {
-        await _firestore.collection('pickup_requests').add(request);
-      }
-
-      debugPrint('✅ Sample pickup requests initialized successfully');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Error initializing sample requests: $e');
-      return false;
-    }
-  }
-
   /// Create a new pickup request with proper structure
   Future<String?> createPickupRequest({
     required String userId,
@@ -176,39 +118,6 @@ class FirestoreInitService {
     } catch (e) {
       debugPrint('❌ Error getting user pickup requests: $e');
       return [];
-    }
-  }
-
-  /// Delete all sample data (for cleanup during testing)
-  Future<bool> deleteSampleData() async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('pickup_requests')
-          .get();
-
-      for (var doc in querySnapshot.docs) {
-        await doc.reference.delete();
-      }
-
-      debugPrint('✅ Sample data deleted');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Error deleting sample data: $e');
-      return false;
-    }
-  }
-
-  /// Check if pickup requests collection exists and has data
-  Future<bool> checkPickupRequestsCollection() async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('pickup_requests')
-          .limit(1)
-          .get();
-      return querySnapshot.docs.isNotEmpty;
-    } catch (e) {
-      debugPrint('❌ Error checking collection: $e');
-      return false;
     }
   }
 }

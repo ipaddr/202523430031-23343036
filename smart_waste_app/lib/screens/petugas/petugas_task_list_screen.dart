@@ -14,7 +14,8 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   String _selectedFilter = 'semua';
-  late String _currentOfficerId;
+  String _currentOfficerId = '';
+  bool _isResolvingOfficer = true;
   final PetugasTaskService _taskService = PetugasTaskService();
 
   @override
@@ -26,9 +27,21 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
     );
     _animationController.forward();
     
-    // Get current officer ID from Firebase Auth
+    _resolveCurrentOfficerId();
+  }
+
+  Future<void> _resolveCurrentOfficerId() async {
     final user = FirebaseAuth.instance.currentUser;
-    _currentOfficerId = user?.uid ?? '';
+    final officerId = await _taskService.resolveOfficerId(
+      authUid: user?.uid ?? '',
+      email: user?.email,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _currentOfficerId = officerId;
+      _isResolvingOfficer = false;
+    });
   }
 
   @override
@@ -107,70 +120,73 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
                     const SizedBox(height: 24),
 
                     // Task List with Real-time Firestore
-                    StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: _selectedFilter == 'semua'
-                          ? _taskService.getAssignedTasks(_currentOfficerId)
-                          : _taskService.getTasksByStatus(_currentOfficerId, _selectedFilter),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 40),
-                            child: CircularProgressIndicator(color: AppColors.primary),
-                          );
-                        }
-
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 40),
-                            child: Column(
-                              children: [
-                                Icon(Icons.inbox_outlined, size: 60, color: Colors.grey[300]),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Tidak ada tugas',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[500],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        final tasks = snapshot.data!;
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: tasks.length,
-                          itemBuilder: (context, index) {
-                            final delay = (index * 0.1).clamp(0.0, 0.4);
-                            final animation = CurvedAnimation(
-                              parent: _animationController,
-                              curve: Interval(
-                                0.3 + delay > 1.0 ? 1.0 : 0.3 + delay,
-                                0.7 + delay > 1.0 ? 1.0 : 0.7 + delay,
-                                curve: Curves.easeOutCubic,
+                    if (_isResolvingOfficer)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
+                    else if (_currentOfficerId.isEmpty)
+                      _buildEmptyState('Akun petugas belum terhubung')
+                    else
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _selectedFilter == 'semua'
+                            ? _taskService.getAssignedTasks(_currentOfficerId)
+                            : _taskService.getTasksByStatus(
+                                _currentOfficerId,
+                                _selectedFilter,
+                              ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40),
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
                               ),
                             );
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: animation.drive(
-                                  Tween<Offset>(
-                                    begin: const Offset(0, 0.2),
-                                    end: Offset.zero,
-                                  ),
-                                ),
-                                child: _TaskCard(task: tasks[index]),
-                              ),
+                          }
+
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return _buildEmptyState(
+                              'Tidak ada tugas sesuai jadwal aktif',
                             );
-                          },
-                        );
-                      },
-                    )
-                  ],),
+                          }
+
+                          final tasks = snapshot.data!;
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: tasks.length,
+                            itemBuilder: (context, index) {
+                              final delay = (index * 0.1).clamp(0.0, 0.4);
+                              final animation = CurvedAnimation(
+                                parent: _animationController,
+                                curve: Interval(
+                                  0.3 + delay > 1.0 ? 1.0 : 0.3 + delay,
+                                  0.7 + delay > 1.0 ? 1.0 : 0.7 + delay,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              );
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: animation.drive(
+                                    Tween<Offset>(
+                                      begin: const Offset(0, 0.2),
+                                      end: Offset.zero,
+                                    ),
+                                  ),
+                                  child: _TaskCard(task: tasks[index]),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                  ],
+                ),
                 ),
               const SizedBox(height: 24),
             ],
@@ -212,9 +228,9 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
             ),
             const SizedBox(width: 12),
             _FilterChip(
-              label: 'Pending',
-              isSelected: _selectedFilter == 'pending',
-              onTap: () => setState(() => _selectedFilter = 'pending'),
+              label: 'Disetujui',
+              isSelected: _selectedFilter == 'accepted',
+              onTap: () => setState(() => _selectedFilter = 'accepted'),
             ),
             const SizedBox(width: 12),
             _FilterChip(
@@ -236,6 +252,27 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, size: 60, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -324,6 +361,7 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
     final status = widget.task['status'] as String? ?? 'pending';
     switch (status) {
       case 'pending':
+      case 'accepted':
         return const Color(0xFFF59E0B);
       case 'in_progress':
         return const Color(0xFF3B82F6);
@@ -342,7 +380,8 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
     final status = widget.task['status'] as String? ?? 'pending';
     switch (status) {
       case 'pending':
-        return 'Pending';
+      case 'accepted':
+        return 'Disetujui';
       case 'in_progress':
         return 'In Progress';
       case 'arrived':
@@ -415,7 +454,9 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
                     ),
                   ),
                   Text(
-                    widget.task['distance'] ?? '-',
+                    (widget.task['schedule_date_text'] ?? '').toString().isNotEmpty
+                        ? widget.task['schedule_date_text']
+                        : widget.task['distance'] ?? '-',
                     style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontWeight: FontWeight.w600,
@@ -426,7 +467,9 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
               ),
               const SizedBox(height: 16),
               Text(
-                widget.task['waste_type'] ?? 'Sampah',
+                widget.task['waste_type'] ??
+                    widget.task['wasteType'] ??
+                    'Sampah',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -435,6 +478,31 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
                 ),
               ),
               const SizedBox(height: 8),
+              if ((widget.task['schedule_route'] ?? '').toString().isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.route_rounded,
+                      size: 16,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.task['schedule_route'],
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -442,7 +510,9 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      widget.task['location'] ?? 'Lokasi tidak tersedia',
+                      widget.task['address'] ??
+                          widget.task['location'] ??
+                          'Lokasi tidak tersedia',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF64748B),
@@ -470,7 +540,9 @@ class _TaskCardState extends State<_TaskCard> with SingleTickerProviderStateMixi
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        widget.task['estimated_arrival_time'] ?? '-',
+                        widget.task['schedule_time'] ??
+                            widget.task['estimated_arrival_time'] ??
+                            '-',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

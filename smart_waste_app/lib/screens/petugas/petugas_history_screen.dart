@@ -13,53 +13,7 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
   late AnimationController _animationController;
   String _selectedFilter = 'semua';
 
-  final List<Map<String, dynamic>> _history = [
-    {
-      'id': 1,
-      'type': 'Sampah Anorganik',
-      'address': 'Blok Sis, Perumahan Griya Indah Blok A1',
-      'weight': '7.5 kg',
-      'date': '12 Mei 2024 • 09:00',
-      'points': 150,
-      'status': 'selesai',
-    },
-    {
-      'id': 2,
-      'type': 'Sampah Organik',
-      'address': 'Jl. Raya Joko Balok, Gedang Jalan',
-      'weight': '6.2 kg',
-      'date': '11 Mei 2024 • 10:30',
-      'points': 120,
-      'status': 'selesai',
-    },
-    {
-      'id': 3,
-      'type': 'Sampah B3',
-      'address': 'Apartemen Sabit Kav. 12',
-      'weight': '8.3 kg',
-      'date': '10 Mei 2024 • 13:00',
-      'points': 200,
-      'status': 'selesai',
-    },
-    {
-      'id': 4,
-      'type': 'Sampah Anorganik',
-      'address': 'Perumahan Griya Indah Blok B2',
-      'weight': '5.1 kg',
-      'date': '09 Mei 2024 • 14:00',
-      'points': 100,
-      'status': 'dibatalkan',
-    },
-    {
-      'id': 5,
-      'type': 'Sampah Organik',
-      'address': 'Jl. Raya Batu Aji No. 45',
-      'weight': '4.8 kg',
-      'date': '08 Mei 2024 • 16:20',
-      'points': 90,
-      'status': 'selesai',
-    },
-  ];
+  // History akan diambil dari Firebase menggunakan PetugasTaskService
 
   @override
   void initState() {
@@ -79,10 +33,6 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final filteredHistory = _selectedFilter == 'semua'
-        ? _history
-        : _history.where((item) => item['status'] == _selectedFilter).toList();
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -99,25 +49,14 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
             const SizedBox(height: 16),
 
             // History List
-            Expanded(
-              child: filteredHistory.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppPadding.lg,
-                        0,
-                        AppPadding.lg,
-                        AppPadding.lg,
-                      ),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: filteredHistory.length,
-                      itemBuilder: (context, index) {
-                        return _buildAnimatedCard(
-                          filteredHistory[index],
-                          index,
-                        );
-                      },
-                    ),
+            const Expanded(
+              child: Center(
+                child: Text(
+                  'Riwayat akan ditampilkan di sini\n(Data dari Firebase)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF94A3B8)),
+                ),
+              ),
             ),
           ],
         ),
@@ -242,59 +181,10 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
     );
   }
 
-  Widget _buildAnimatedCard(Map<String, dynamic> item, int index) {
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: _animationController,
-        curve: Interval(
-          index * 0.1,
-          0.6 + (index * 0.1),
-          curve: Curves.easeOut,
-        ),
-      ),
-      child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-            .animate(
-              CurvedAnimation(
-                parent: _animationController,
-                curve: Interval(
-                  index * 0.1,
-                  0.6 + (index * 0.1),
-                  curve: Curves.easeOutCubic,
-                ),
-              ),
-            ),
-        child: _HistoryCard(item: item),
-      ),
-    );
-  }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history_rounded, size: 80, color: const Color(0xFFE2E8F0)),
-          const SizedBox(height: 16),
-          const Text(
-            'Belum ada riwayat',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Selesaikan tugas pertama Anda hari ini!',
-            style: TextStyle(color: Color(0xFF94A3B8)),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
+// ignore: unused_element
 class _HistoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
 

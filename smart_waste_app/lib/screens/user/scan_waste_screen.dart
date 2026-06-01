@@ -1,16 +1,12 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
 import 'package:camera/camera.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../utils/constants.dart';
-import '../../utils/theme_colors.dart';
 import '../../services/tflite_service.dart';
 import '../../services/camera_provider.dart';
-import 'home_screen.dart';
-import 'schedule_screen.dart';
-import 'tracking_screen.dart';
-import 'request_pickup_screen.dart';
-import 'history_screen.dart';
-import 'statistics_screen.dart';
 
 class ScanWasteScreen extends StatefulWidget {
   const ScanWasteScreen({super.key});
@@ -22,7 +18,8 @@ class ScanWasteScreen extends StatefulWidget {
 class _ScanWasteScreenState extends State<ScanWasteScreen>
     with WidgetsBindingObserver {
   final TFLiteService _tfliteService = TFLiteService();
-  WasteClassification? _lastClassification;
+  final ImagePicker _imagePicker = ImagePicker();
+  List<WastePrediction> _topPredictions = [];
   bool _isProcessing = false;
 
   @override
@@ -34,8 +31,11 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
 
   Future<void> _initializeServices() async {
     try {
+      print('[ScanWaste] Initializing services...');
+
       // Initialize TFLite model
       await _tfliteService.initialize();
+      print('[ScanWaste] TFLite initialized: ${_tfliteService.isInitialized}');
 
       // Initialize camera
       if (mounted) {
@@ -44,9 +44,12 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
           listen: false,
         );
         await cameraProvider.initializeCamera();
+        print('[ScanWaste] Camera initialized');
       }
+
+      print('[ScanWaste] ✅ All services initialized successfully');
     } catch (e) {
-      print('Error initializing: $e');
+      print('[ScanWaste] ❌ Error initializing: $e');
     }
   }
 
@@ -60,32 +63,141 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
   Future<void> _captureAndClassify() async {
     if (_isProcessing) return;
 
-    _isProcessing = true;
+    setState(() => _isProcessing = true);
 
     try {
       final cameraProvider = Provider.of<CameraProvider>(
         context,
         listen: false,
       );
-      if (cameraProvider.controller == null) return;
+      
+      // Check camera initialization
+      if (!cameraProvider.isInitialized || cameraProvider.controller == null) {
+        print('[ScanWaste] ❌ Camera not initialized');
+        print('[ScanWaste] isInitialized: ${cameraProvider.isInitialized}');
+        print('[ScanWaste] controller: ${cameraProvider.controller}');
+        
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Kamera belum siap. Tunggu beberapa detik...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Check TFLite initialization
+      if (!_tfliteService.isInitialized) {
+        print('[ScanWaste] ❌ TFLite not initialized');
+        
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Model AI belum siap. Tunggu beberapa detik...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      print('[ScanWaste] ✅ All services ready, capturing image...');
 
       // Capture image
       final XFile image = await cameraProvider.controller!.takePicture();
       final imageData = await image.readAsBytes();
 
-      // Classify
-      final classification = await _tfliteService.classifyImage(imageData);
+      print('[ScanWaste] ✅ Image captured, size: ${imageData.length} bytes');
 
-      if (mounted) {
-        setState(() {
-          _lastClassification = classification;
-          _isProcessing = false;
-        });
-      }
+      await _classifyImageBytes(imageData);
+      return;
+
+      // Classify - get top 3 predictions
     } catch (e) {
-      print('Error capturing image: $e');
-      _isProcessing = false;
+      print('[ScanWaste] ❌ ERROR capturing image: $e');
+      print('[ScanWaste] Stack trace: ${StackTrace.current}');
+      
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _pickFromGallery() async {
+    if (_isProcessing) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 95,
+      );
+
+      if (image == null) return;
+
+      if (mounted) setState(() => _isProcessing = true);
+
+      final imageData = await image.readAsBytes();
+      print(
+        '[ScanWaste] Gallery image selected, size: ${imageData.length} bytes',
+      );
+      await _classifyImageBytes(imageData);
+    } catch (e) {
+      print('[ScanWaste] ERROR picking gallery image: $e');
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengambil gambar dari galeri: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> _classifyImageBytes(Uint8List imageData) async {
+    final predictions = await _tfliteService.classifyImageTopN(
+      imageData,
+      topN: 3,
+    );
+
+    if (!mounted) return true;
+
+    if (predictions.isEmpty) {
+      print('[ScanWaste] Classification returned no results');
+      setState(() => _isProcessing = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Scan gagal. Coba foto lebih dekat, latar lebih bersih, atau pencahayaan lebih terang.',
+          ),
+          duration: Duration(seconds: 3),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return true;
+    }
+
+    print(
+      '[ScanWaste] Classification SUCCESS: ${predictions[0].label} (${(predictions[0].confidence * 100).toStringAsFixed(1)}%)',
+    );
+    setState(() {
+      _topPredictions = predictions;
+      _isProcessing = false;
+    });
+    return true;
   }
 
   @override
@@ -107,7 +219,10 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                    colors: [
+                      Colors.black.withValues(alpha: 0.6),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
                 padding: const EdgeInsets.all(AppPadding.lg),
@@ -190,7 +305,10 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8),
+                    ],
                   ),
                 ),
                 padding: const EdgeInsets.all(AppPadding.lg),
@@ -248,110 +366,89 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
   }
 
   Widget _buildBottomSection() {
+    final hasResults = _topPredictions.isNotEmpty;
+    final topPrediction = hasResults ? _topPredictions[0] : null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_lastClassification != null) ...[
-          // Result Card
+        if (hasResults) ...[
+          // Detection Results Card
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: Colors.white.withValues(alpha: 0.98),
               borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             padding: const EdgeInsets.all(AppPadding.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 24),
-                    SizedBox(width: 8),
-                    Text('Hasil Scan', style: AppText.heading3),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                // Title with Icon
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _lastClassification!.label,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Confidence: ${(_lastClassification!.confidence * 100).toStringAsFixed(1)}%',
-                            style: const TextStyle(
-                              color: AppColors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     Container(
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.secondary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        color: Colors.green.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppPadding.md,
-                        vertical: AppPadding.sm,
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 20,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            color: AppColors.secondary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '+${_lastClassification!.points}',
-                            style: const TextStyle(
-                              color: AppColors.secondary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Detection Results',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.black,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Predictions List with Progress Bars
+                ..._buildPredictionsList(),
+
+                const SizedBox(height: 16),
+
+                // Action Buttons
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: OutlinedButton.icon(
                         onPressed: () {
-                          setState(() => _lastClassification = null);
+                          setState(() => _topPredictions = []);
                         },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Scan Ulang'),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(
                             color: AppColors.primary,
-                            width: 2,
+                            width: 1.5,
                           ),
                         ),
-                        child: const Text('Scan Ulang'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.pop(context, _lastClassification);
+                          Navigator.pop(context, topPrediction);
                         },
+                        icon: const Icon(Icons.check),
+                        label: const Text('Konfirmasi'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
                         ),
-                        child: const Text('Konfirmasi'),
                       ),
                     ),
                   ],
@@ -360,7 +457,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
             ),
           ),
         ] else ...[
-          // Instructions
+          // Instructions (No Results)
           const Column(
             children: [
               Text(
@@ -379,228 +476,245 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
             ],
           ),
         ],
-        const SizedBox(height: 24),
-        // Capture Button
-        GestureDetector(
-          onTap: _isProcessing ? null : _captureAndClassify,
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.secondary,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.5),
-                width: 4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.secondary.withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildRoundActionButton(
+              icon: Icons.photo_library,
+              tooltip: 'Ambil dari galeri',
+              onTap: _pickFromGallery,
+              size: 56,
+              iconSize: 24,
+              outlined: true,
             ),
-            child: const Icon(
-              Icons.camera_alt,
-              color: AppColors.black,
-              size: 32,
+            const SizedBox(width: 18),
+            _buildRoundActionButton(
+              icon: _isProcessing ? Icons.hourglass_bottom : Icons.camera,
+              tooltip: 'Scan dengan kamera',
+              onTap: _captureAndClassify,
+              size: 70,
+              iconSize: 28,
             ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        // Menu Button
-        GestureDetector(
-          onTap: () => _showQuickMenu(),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 2,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.apps, color: AppColors.white, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Menu Lainnya',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ],
     );
   }
 
-  void _showQuickMenu() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
-        ),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(AppPadding.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Menu Lainnya',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              GridView.count(
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.0,
-                children: [
-                  _buildMenuTile(
-                    icon: Icons.calendar_today,
-                    label: 'Jadwal',
-                    color: ThemeColors.getStatusInProgressColor(context),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ScheduleScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.local_shipping,
-                    label: 'Tracking',
-                    color: AppColors.primary,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TrackingScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.shopping_cart,
-                    label: 'Request',
-                    color: ThemeColors.getStatusArrivedColor(context),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RequestPickupScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.history,
-                    label: 'Riwayat',
-                    color: ThemeColors.getStatusCompletedColor(context),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HistoryScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.bar_chart,
-                    label: 'Statistik',
-                    color: ThemeColors.getStatusRejectedColor(context),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StatisticsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuTile(
-                    icon: Icons.home,
-                    label: 'Beranda',
-                    color: AppColors.primary,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UserHomeScreen(),
-                        ),
-                        (route) => false,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMenuTile({
+  Widget _buildRoundActionButton({
     required IconData icon,
-    required String label,
-    required Color color,
+    required String tooltip,
     required VoidCallback onTap,
+    double size = 64,
+    double iconSize = 26,
+    bool outlined = false,
   }) {
-    return GestureDetector(
-      onTap: onTap,
+    return Tooltip(
+      message: tooltip,
       child: Container(
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
+          shape: BoxShape.circle,
+          gradient: outlined
+              ? null
+              : const LinearGradient(
+                  colors: [AppColors.secondary, Color(0xFF0D5A2F)],
+                ),
+          color: outlined ? Colors.white.withValues(alpha: 0.18) : null,
+          border: outlined ? Border.all(color: Colors.white, width: 1.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.secondary.withValues(alpha: 0.28),
+              blurRadius: 12,
+              spreadRadius: 2,
             ),
           ],
         ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isProcessing ? null : onTap,
+            borderRadius: BorderRadius.circular(size / 2),
+            child: Center(
+              child: Icon(icon, color: Colors.white, size: iconSize),
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  List<Widget> _buildPredictionsList() {
+    return List.generate(_topPredictions.length, (index) {
+      final prediction = _topPredictions[index];
+      final confidence = prediction.confidence * 100;
+      final isHighConfidence = confidence >= 50;
+      final category = _tfliteService.getWasteCategory(prediction.label);
+      final categoryIcon = category == 'Organic' ? '🌱' : '♻️';
+
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: index < _topPredictions.length - 1 ? 16 : 0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Label and Confidence
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        '${index + 1}. ',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          prediction.label,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isHighConfidence
+                        ? Colors.green.withValues(alpha: 0.2)
+                        : Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${confidence.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isHighConfidence
+                          ? Colors.green[700]
+                          : Colors.orange[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Info Row: Category and Points
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Category Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: category == 'Organic'
+                        ? const Color(0xFF6B8E23).withValues(alpha: 0.2)
+                        : const Color(0xFF4A90E2).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(categoryIcon, style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 4),
+                      Text(
+                        category,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: category == 'Organic'
+                              ? const Color(0xFF6B8E23)
+                              : const Color(0xFF4A90E2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Points Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('⭐', style: TextStyle(fontSize: 12)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${prediction.points} pts',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFFFA500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Progress Bar
+            Stack(
+              children: [
+                // Background
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                // Filled portion
+                Container(
+                  height: 6,
+                  width:
+                      (confidence / 100) *
+                      (MediaQuery.of(context).size.width - 72),
+                  decoration: BoxDecoration(
+                    color: _getColorByIndex(index),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Color _getColorByIndex(int index) {
+    const colors = [
+      Colors.orange, // First/top prediction - orange
+      Colors.red, // Second prediction - red
+      Colors.amber, // Third prediction - amber
+    ];
+    return colors[index < colors.length ? index : 0];
   }
 }

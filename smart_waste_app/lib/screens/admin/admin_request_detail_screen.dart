@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
+import '../../services/firestore_init_service.dart';
 
 class AdminRequestDetailScreen extends StatefulWidget {
   final Map<String, dynamic>? request;
 
-  const AdminRequestDetailScreen({Key? key, this.request}) : super(key: key);
+  const AdminRequestDetailScreen({Key? key, this.request, String? requestId}) : super(key: key);
 
   @override
   State<AdminRequestDetailScreen> createState() =>
@@ -14,6 +16,8 @@ class AdminRequestDetailScreen extends StatefulWidget {
 class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  bool _isLoading = false;
+  final _firestoreService = FirestoreInitService();
 
   @override
   void initState() {
@@ -33,18 +37,7 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final req =
-        widget.request ??
-        {
-          'id': 'REQ-001',
-          'name': 'Andi Saputra',
-          'address': 'Jl. Merdeka No. 12, Subang',
-          'time': 'Pagi (07:00 - 09:00)',
-          'status': 'Baru',
-          'type': 'Sampah Organik',
-          'volume': '5 - 10 kg',
-          'color': Colors.orange,
-        };
+    final req = widget.request ?? {};
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -141,7 +134,9 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                           border: Border.all(
                             color:
-                                (req['color'] as Color?)?.withValues(alpha: 0.2) ??
+                                (req['color'] as Color?)?.withValues(
+                                  alpha: 0.2,
+                                ) ??
                                 Colors.orange.withValues(alpha: 0.2),
                             width: 1.5,
                           ),
@@ -296,7 +291,8 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    onTap: () {},
+                                    onTap: () =>
+                                        _openGoogleMaps(req['address']),
                                     borderRadius: BorderRadius.circular(
                                       AppRadius.lg,
                                     ),
@@ -360,7 +356,9 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: () {},
+                                  onTap: _isLoading
+                                      ? null
+                                      : () => _approveRequest(req),
                                   borderRadius: BorderRadius.circular(
                                     AppRadius.lg,
                                   ),
@@ -394,7 +392,9 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: () {},
+                                  onTap: _isLoading
+                                      ? null
+                                      : () => _rejectRequest(req),
                                   borderRadius: BorderRadius.circular(
                                     AppRadius.lg,
                                   ),
@@ -477,5 +477,182 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
         ),
       ),
     );
+  }
+
+  /// Open address in Google Maps
+  Future<void> _openGoogleMaps(String address) async {
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alamat tidak tersedia'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final String encodedAddress = Uri.encodeComponent(address);
+      final String googleMapsUrl =
+          'https://www.google.com/maps/search/$encodedAddress';
+
+      if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
+        await launchUrl(
+          Uri.parse(googleMapsUrl),
+          mode: LaunchMode.externalApplication,
+        );
+        debugPrint('✅ Opened Google Maps for: $address');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps'),
+            backgroundColor: Color(0xFFFF6B6B),
+          ),
+        );
+        debugPrint('❌ Cannot launch Google Maps');
+      }
+    } catch (e) {
+      debugPrint('❌ Error opening Google Maps: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: const Color(0xFFFF6B6B),
+        ),
+      );
+    }
+  }
+
+  /// Approve and assign the request
+  Future<void> _approveRequest(Map<String, dynamic> request) async {
+    final requestId = request['id'] ?? request['request_id'];
+
+    if (requestId == null || requestId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: ID request tidak ditemukan'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await _firestoreService.updateRequestStatus(
+        requestId,
+        'approved',
+      );
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Request disetujui!'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Gagal menyetujui request'),
+              backgroundColor: Color(0xFFFF6B6B),
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('❌ Error approving request: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFF6B6B),
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Reject the request
+  Future<void> _rejectRequest(Map<String, dynamic> request) async {
+    final requestId = request['id'] ?? request['request_id'];
+
+    if (requestId == null || requestId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: ID request tidak ditemukan'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak Request?'),
+        content: const Text('Apakah Anda yakin ingin menolak request ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Tolak',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await _firestoreService.updateRequestStatus(
+        requestId,
+        'rejected',
+      );
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Request ditolak'),
+              backgroundColor: Color(0xFFFF6B6B),
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Gagal menolak request'),
+              backgroundColor: Color(0xFFFF6B6B),
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('❌ Error rejecting request: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFF6B6B),
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }
