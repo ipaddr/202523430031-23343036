@@ -294,19 +294,15 @@ class _PickupTasksScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppPadding.md),
           child: Column(
-            children: List.generate(
-              5,
-              (index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _TaskCard(
-                  address: 'Jl. Merdeka No. ${42 + index}',
-                  wasteType: 'Sampah Anorganik',
-                  volume: '${5 + index} kg',
-                  status: index == 0 ? 'pending' : 'waiting',
-                  time: '08:${30 + index * 10}',
+            children: const [
+              Center(
+                child: Text(
+                  'Tugas akan ditampilkan di sini\n(Data dari Firebase)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF94A3B8)),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -314,6 +310,7 @@ class _PickupTasksScreen extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _TaskCard extends StatelessWidget {
   final String address;
   final String wasteType;

@@ -27,6 +27,10 @@ class RequestAssignmentService {
     required int estimatedArrivalTime,
   }) async {
     try {
+      debugPrint(
+        '[approveAndAssignRequest] Starting approval for request: $requestId, officer: $officerId',
+      );
+
       // Get officer details
       final officerDoc = await _firestore
           .collection('officers')
@@ -68,6 +72,10 @@ class RequestAssignmentService {
         Duration(minutes: estimatedArrivalTime),
       );
 
+      debugPrint(
+        '[approveAndAssignRequest] Updating request with officer: $officerName',
+      );
+
       // Update request dengan assignment info
       await _firestore.collection('pickup_requests').doc(requestId).update({
         'status': 'accepted',
@@ -86,11 +94,17 @@ class RequestAssignmentService {
         'updated_at': FieldValue.serverTimestamp(),
       });
 
+      debugPrint(
+        '[approveAndAssignRequest] Incrementing officer assigned count',
+      );
+
       // Update officer's assigned count
       await _firestore.collection('officers').doc(officerId).update({
         'assignedRequests': FieldValue.increment(1),
         'lastAssignment': FieldValue.serverTimestamp(),
       });
+
+      debugPrint('[approveAndAssignRequest] Sending notifications');
 
       // Send notifications
       await _notificationService.sendRequestApprovedNotification(
@@ -109,6 +123,10 @@ class RequestAssignmentService {
         address: requestData['address'] ?? requestData['location'] ?? 'Unknown',
       );
 
+      debugPrint(
+        '[approveAndAssignRequest] SUCCESS: Request approved and assigned',
+      );
+
       return {
         'success': true,
         'message': 'Request berhasil disetujui dan ditugaskan ke $officerName',
@@ -116,6 +134,7 @@ class RequestAssignmentService {
         'estimatedArrival': estimatedArrival,
       };
     } catch (e) {
+      debugPrint('[approveAndAssignRequest] ERROR: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -157,25 +176,75 @@ class RequestAssignmentService {
     int maxAssignments = 5,
   }) async {
     try {
-      final snapshot = await _firestore
+      debugPrint('═' * 50);
+      debugPrint('[getAvailableOfficers] === STARTING OFFICER QUERY ===');
+      debugPrint(
+        '[getAvailableOfficers] MaxAssignments threshold: $maxAssignments',
+      );
+
+      // First try to get officers with status 'Aktif'
+      var snapshot = await _firestore
           .collection('officers')
           .where('status', isEqualTo: 'Aktif')
           .get();
 
+      debugPrint(
+        '[getAvailableOfficers] Query 1: Found ${snapshot.docs.length} officers with status "Aktif"',
+      );
+
+      // If no officers found with status filter, get all officers as fallback
+      if (snapshot.docs.isEmpty) {
+        debugPrint(
+          '[getAvailableOfficers] ⚠️  No officers with "Aktif" status, fetching ALL officers...',
+        );
+        snapshot = await _firestore.collection('officers').get();
+        debugPrint(
+          '[getAvailableOfficers] Query 2: Found ${snapshot.docs.length} TOTAL officers in collection',
+        );
+
+        // Log each officer's details for debugging
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          debugPrint(
+            '[getAvailableOfficers] - ${data['name'] ?? 'Unknown'} | Status: ${data['status'] ?? 'NO_STATUS_FIELD'}',
+          );
+        }
+      }
+
       final officers = <Map<String, dynamic>>[];
+      final filteredOut = <Map<String, dynamic>>[];
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
+        final status =
+            data['status'] ?? 'Aktif'; // Default to Aktif if no status field
         final assignedCount = data['assignedRequests'] ?? 0;
+        final name = data['name'] ?? 'Unknown';
 
-        // Only include officers with less than max assignments
-        if (assignedCount < maxAssignments) {
+        // Check if officer meets criteria
+        if (status == 'Aktif' && assignedCount < maxAssignments) {
+          debugPrint(
+            '[getAvailableOfficers] ✅ AVAILABLE: $name (Status: $status, Assigned: $assignedCount/$maxAssignments)',
+          );
           officers.add({
             'id': doc.id,
-            'name': data['name'] ?? 'Unknown',
+            'name': name,
             'phone': data['phone'] ?? '',
             'assignedRequests': assignedCount,
             'completedRequests': data['completedRequests'] ?? 0,
+            'status': status,
+          });
+        } else {
+          // Log why officer was filtered out
+          final reason = status != 'Aktif'
+              ? 'Status is "$status"'
+              : 'Assigned: $assignedCount/$maxAssignments (FULL)';
+          debugPrint('[getAvailableOfficers] ❌ FILTERED OUT: $name ($reason)');
+          filteredOut.add({
+            'name': name,
+            'status': status,
+            'assigned': assignedCount,
+            'reason': reason,
           });
         }
       }
@@ -187,9 +256,30 @@ class RequestAssignmentService {
         ),
       );
 
+      debugPrint('[getAvailableOfficers] ');
+      debugPrint('[getAvailableOfficers] 📊 SUMMARY:');
+      debugPrint(
+        '[getAvailableOfficers]   - Total officers in DB: ${snapshot.docs.length}',
+      );
+      debugPrint(
+        '[getAvailableOfficers]   - Available for assignment: ${officers.length}',
+      );
+      debugPrint(
+        '[getAvailableOfficers]   - Filtered out: ${filteredOut.length}',
+      );
+      if (filteredOut.isNotEmpty) {
+        for (var officer in filteredOut) {
+          debugPrint(
+            '[getAvailableOfficers]     • ${officer['name']} - ${officer['reason']}',
+          );
+        }
+      }
+      debugPrint('═' * 50);
+
       return officers;
     } catch (e) {
-      debugPrint('Error getting available officers: $e');
+      debugPrint('[getAvailableOfficers] ❌ CRITICAL ERROR: $e');
+      debugPrint('[getAvailableOfficers] Error type: ${e.runtimeType}');
       return [];
     }
   }

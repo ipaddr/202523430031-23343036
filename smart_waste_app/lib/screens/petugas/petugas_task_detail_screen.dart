@@ -38,6 +38,9 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
     );
 
     _animationController.forward();
+
+    // Debug: Print task data
+    debugPrint('Task data received: ${widget.task}');
   }
 
   @override
@@ -111,7 +114,7 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Sampah Anorganik',
+                                'Detail Tugas',
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
@@ -132,18 +135,18 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
                                     color: Colors.white.withValues(alpha: 0.2),
                                   ),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.access_time_rounded,
                                       color: Colors.white,
                                       size: 14,
                                     ),
-                                    SizedBox(width: 6),
+                                    const SizedBox(width: 6),
                                     Text(
-                                      'Mendatang',
-                                      style: TextStyle(
+                                      _scheduleTime,
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 11,
@@ -241,6 +244,13 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
   }
 
   Widget _buildInfoGrid() {
+    final task = widget.task ?? {};
+    final estimatedTime =
+        task['schedule_time'] ?? task['estimated_arrival_time'] ?? '-';
+    final route = task['schedule_route'] ?? task['distance'] ?? '-';
+    final userName = task['user_name'] ?? task['name'] ?? '-';
+    final userPhone = task['user_phone'] ?? task['phone'] ?? '-';
+
     return Column(
       children: [
         Row(
@@ -248,8 +258,8 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
             Expanded(
               child: _buildInfoItem(
                 Icons.access_time_filled_rounded,
-                'Waktu',
-                '09:00 - 10:00',
+                'Jadwal',
+                estimatedTime,
                 const Color(0xFF3B82F6),
               ),
             ),
@@ -257,8 +267,8 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
             Expanded(
               child: _buildInfoItem(
                 Icons.directions_car_rounded,
-                'Jarak',
-                '2.5 km',
+                'Rute',
+                route,
                 const Color(0xFFF59E0B),
               ),
             ),
@@ -271,7 +281,7 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
               child: _buildInfoItem(
                 Icons.assignment_ind_rounded,
                 'Pemesan',
-                'Bpk. Ahmad',
+                userName,
                 const Color(0xFF10B981),
               ),
             ),
@@ -280,7 +290,7 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
               child: _buildInfoItem(
                 Icons.phone_android_rounded,
                 'Kontak',
-                '0812-3456-7890',
+                userPhone,
                 const Color(0xFF8B5CF6),
               ),
             ),
@@ -288,6 +298,14 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
         ),
       ],
     );
+  }
+
+  String get _scheduleTime {
+    final task = widget.task ?? {};
+    return (task['schedule_time'] ??
+            task['estimated_arrival_time'] ??
+            'Belum ada jadwal')
+        .toString();
   }
 
   Widget _buildInfoItem(
@@ -345,6 +363,14 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
   }
 
   Widget _buildLocationCard() {
+    final task = widget.task ?? {};
+    final locationName =
+        task['location'] ?? task['address'] ?? 'Lokasi tidak tersedia';
+    final fullAddress =
+        task['address'] ?? task['location'] ?? 'Alamat tidak tersedia';
+    final latitude = task['latitude'] ?? task['user_lat'] ?? 0.0;
+    final longitude = task['longitude'] ?? task['user_lon'] ?? 0.0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -362,28 +388,32 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.location_on_rounded,
                 color: AppColors.primary,
                 size: 20,
               ),
-              SizedBox(width: 10),
-              Text(
-                'Perumahan Griya Indah Blok A1',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF1E293B),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  locationName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Color(0xFF1E293B),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Blok Sis, Perumahan Griya Indah Blok A1, Kota Bogor, Jawa Barat 16310',
-            style: TextStyle(
+          Text(
+            fullAddress,
+            style: const TextStyle(
               color: Color(0xFF64748B),
               fontSize: 14,
               height: 1.5,
@@ -397,10 +427,10 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
                 context,
                 '/navigation',
                 arguments: {
-                  'lat': widget.task?['lat'],
-                  'lng': widget.task?['lng'],
-                  'address': widget.task?['address'],
-                  'type': widget.task?['type'],
+                  'lat': latitude,
+                  'lng': longitude,
+                  'address': fullAddress,
+                  'type': task['waste_type'] ?? 'Sampah',
                 },
               ),
               icon: const Icon(Icons.near_me_rounded, size: 18),

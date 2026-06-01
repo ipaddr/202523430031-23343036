@@ -200,6 +200,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x331B5E20),
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppPadding.lg,
@@ -369,7 +376,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                                 Text(
                                   'Tidak ada pengguna',
                                   style: TextStyle(
-                                    color: AppColors.grey.withValues(alpha: 0.7),
+                                    color: AppColors.grey.withValues(
+                                      alpha: 0.7,
+                                    ),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -427,7 +436,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.grey.withValues(alpha: 0.2), width: 1),
+          border: Border.all(
+            color: AppColors.grey.withValues(alpha: 0.2),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -776,7 +788,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                                   width: 52,
                                   height: 5,
                                   decoration: BoxDecoration(
-                                    color: AppColors.grey.withValues(alpha: 0.25),
+                                    color: AppColors.grey.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                 ),
@@ -1008,10 +1022,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                                 Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: Colors.purple.withValues(alpha: 0.08),
+                                    color: Colors.purple.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.purple.withValues(alpha: 0.18),
+                                      color: Colors.purple.withValues(
+                                        alpha: 0.18,
+                                      ),
                                     ),
                                   ),
                                   child: const Text(

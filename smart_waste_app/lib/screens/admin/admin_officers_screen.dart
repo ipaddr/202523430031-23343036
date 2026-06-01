@@ -14,36 +14,7 @@ class _AdminOfficersScreenState extends State<AdminOfficersScreen>
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> officers = [
-    {
-      'id': 'PG-2024-001',
-      'name': 'Andi Prasetyo',
-      'email': 'andi@smartwaste.id',
-      'status': 'Aktif',
-      'color': Colors.green,
-    },
-    {
-      'id': 'PG-2024-002',
-      'name': 'Siti Aisyah',
-      'email': 'siti@smartwaste.id',
-      'status': 'Aktif',
-      'color': Colors.green,
-    },
-    {
-      'id': 'PG-2024-003',
-      'name': 'Rudi Harmawan',
-      'email': 'rudi@smartwaste.id',
-      'status': 'Tunda Aktif',
-      'color': Colors.red,
-    },
-    {
-      'id': 'PG-2024-004',
-      'name': 'Ahmad Fauzi',
-      'email': 'ahmad.fauzi@smartwaste.id',
-      'status': 'Aktif',
-      'color': Colors.green,
-    },
-  ];
+  final List<Map<String, dynamic>> officers = [];
 
   @override
   void initState() {

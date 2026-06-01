@@ -89,8 +89,16 @@ class MyApp extends StatelessWidget {
               '/notifications': (context) => const PetugasNotificationScreen(),
               '/profile': (context) => const PetugasProfileScreen(),
               '/admin_home': (context) => const AdminHomeScreenNew(),
-              '/request_detail': (context) =>
-                  detail_new.AdminRequestDetailScreen(),
+              '/request_detail': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                if (args is Map<String, dynamic>) {
+                  return detail_new.AdminRequestDetailScreen(
+                    requestId: args['id']?.toString(),
+                    request: args,
+                  );
+                }
+                return const detail_new.AdminRequestDetailScreen();
+              },
               '/admin_requests': (context) => const AdminRequestListScreen(),
               '/admin_users': (context) => const AdminUsersScreen(),
               '/admin_officers': (context) =>

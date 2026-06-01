@@ -48,6 +48,13 @@ class _GuideScreenState extends State<GuideScreen>
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x331B5E20),
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppPadding.lg,
@@ -125,7 +132,7 @@ class _GuideScreenState extends State<GuideScreen>
                     ),
                     padding: const EdgeInsets.all(AppPadding.xl),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: const [
                         Text(
                           'Cara Memilah Sampah',
@@ -134,6 +141,7 @@ class _GuideScreenState extends State<GuideScreen>
                             fontWeight: FontWeight.bold,
                             color: AppColors.white,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                         SizedBox(height: 8),
                         Text(
@@ -143,6 +151,7 @@ class _GuideScreenState extends State<GuideScreen>
                             fontSize: 13,
                             height: 1.5,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -206,7 +215,7 @@ class _GuideScreenState extends State<GuideScreen>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const Text(
                       'Tips Pemilahan',
@@ -214,6 +223,7 @@ class _GuideScreenState extends State<GuideScreen>
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     _TipItem(
@@ -313,7 +323,10 @@ class _ExpandableGuideCardState extends State<_ExpandableGuideCard> {
               width: 1.5,
             ),
             boxShadow: [
-              BoxShadow(color: widget.color.withValues(alpha: 0.08), blurRadius: 12),
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.08),
+                blurRadius: 12,
+              ),
             ],
           ),
           child: Column(

@@ -19,40 +19,7 @@ class _AdminRequestListScreenState extends State<AdminRequestListScreen>
     'Selesai (5)',
   ];
 
-  final List<Map<String, dynamic>> requests = [
-    {
-      'id': 'REQ-001',
-      'name': 'Andi Saputra',
-      'address': 'Jl. Merdeka No. 12, Subang',
-      'time': 'Pagi (07:00 - 09:00)',
-      'status': 'Baru',
-      'color': Colors.orange,
-    },
-    {
-      'id': 'REQ-002',
-      'name': 'Rini Wulandari',
-      'address': 'Sampah Anorganik Berat',
-      'time': 'Pagi, 08:30 - 09:15',
-      'status': 'Baru',
-      'color': Colors.orange,
-    },
-    {
-      'id': 'REQ-003',
-      'name': 'Budi Santoso',
-      'address': 'Sampah B3',
-      'time': 'Siang, 12:00 - 14:30',
-      'status': 'Diproses',
-      'color': Colors.blue,
-    },
-    {
-      'id': 'REQ-004',
-      'name': 'Dwel Lashari',
-      'address': 'Sampah Anorganik',
-      'time': 'Pagi, 08:00 - 09:00',
-      'status': 'Selesai',
-      'color': Colors.green,
-    },
-  ];
+  final List<Map<String, dynamic>> requests = [];
 
   @override
   void initState() {

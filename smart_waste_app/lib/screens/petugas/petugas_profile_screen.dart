@@ -62,7 +62,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _buildSectionTitle('Statistik Kinerja'),
                   const SizedBox(height: 16),
@@ -183,7 +183,9 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -236,6 +238,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
         fontWeight: FontWeight.bold,
         color: Color(0xFF1E293B),
       ),
+      textAlign: TextAlign.center,
     );
   }
 

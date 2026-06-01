@@ -39,7 +39,7 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
               onTap: (index) => setState(() => _currentIndex = index),
@@ -47,9 +47,10 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
               elevation: 0,
               selectedItemColor: AppColors.primary,
               unselectedItemColor: const Color(0xFF94A3B8),
+              iconSize: 22,
               type: BottomNavigationBarType.fixed,
-              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
               items: [
                 _buildNavItem(Icons.home_rounded, Icons.home_outlined, 'Beranda', 0),
                 _buildNavItem(Icons.assignment_rounded, Icons.assignment_outlined, 'Tugas', 1),
@@ -68,12 +69,12 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
     return BottomNavigationBarItem(
       icon: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Icon(isSelected ? selectedIcon : unselectedIcon, size: 24),
+        child: Icon(isSelected ? selectedIcon : unselectedIcon, size: 22),
       ),
       label: label,
     );

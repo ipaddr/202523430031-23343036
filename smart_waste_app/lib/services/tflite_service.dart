@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
@@ -13,6 +14,20 @@ class WasteClassification {
     required this.label,
     required this.confidence,
     required this.points,
+  });
+}
+
+class WastePrediction {
+  final String label;
+  final double confidence;
+  final int points;
+  final int rank;
+
+  WastePrediction({
+    required this.label,
+    required this.confidence,
+    required this.points,
+    required this.rank,
   });
 }
 
@@ -40,6 +55,23 @@ class TFLiteService {
     'other': 10,
   };
 
+  // Waste category mapping - Kategorisasi sampah (Organic/Anorganic)
+  static const Map<String, String> wasteCategoryMap = {
+    'vegetation': 'Organic', // 🌱 Vegetasi
+    'food_organics': 'Organic', // 🌱 Sisa makanan
+    'food organics': 'Organic', // 🌱 Sisa makanan (alt)
+    'paper': 'Organic', // 🌱 Kertas
+    'cardboard': 'Organic', // 🌱 Karton
+    'textile_trash': 'Anorganic', // ♻️ Kain/Tekstil
+    'textile trash': 'Anorganic', // ♻️ Kain/Tekstil (alt)
+    'plastic': 'Anorganic', // ♻️ Plastik
+    'miscellaneous_trash': 'Anorganic', // ♻️ Sampah anorganik lainnya
+    'miscellaneous trash': 'Anorganic', // ♻️ Sampah anorganik lainnya (alt)
+    'metal': 'Anorganic', // ♻️ Logam
+    'glass': 'Anorganic', // ♻️ Kaca
+    'other': 'Anorganic',
+  };
+
   factory TFLiteService() {
     return _instance;
   }
@@ -50,6 +82,8 @@ class TFLiteService {
     if (_isInitialized) return;
 
     try {
+      debugPrint('[TFLiteService] Starting model initialization...');
+
       // Load model
       InterpreterOptions options = InterpreterOptions();
       try {
@@ -57,14 +91,16 @@ class TFLiteService {
           options: GpuDelegateOptionsV2(isPrecisionLossAllowed: false),
         );
         options.addDelegate(gpuDelegateV2);
+        debugPrint('[TFLiteService] GPU delegate enabled');
       } catch (e) {
-        debugPrint('GPU delegate not available or failed: $e');
+        debugPrint('[TFLiteService] GPU delegate not available or failed: $e');
       }
 
       interpreter = await Interpreter.fromAsset(
         'model_unquant.tflite',
         options: options,
       );
+      debugPrint('[TFLiteService] Model loaded successfully');
 
       // Load labels
       final labelsData = await rootBundle.loadString('assets/labels.txt');
@@ -74,10 +110,32 @@ class TFLiteService {
           .where((label) => label.isNotEmpty)
           .toList();
 
+      debugPrint('[TFLiteService] Loaded ${labels.length} labels: $labels');
+
+      // Debug: Print model input/output tensor shapes for verification
+      try {
+        final inputTensors = interpreter?.getInputTensors() ?? [];
+        final outputTensors = interpreter?.getOutputTensors() ?? [];
+
+        debugPrint('[TFLiteService] ℹ️ Model Tensor Info:');
+        if (inputTensors.isNotEmpty) {
+          debugPrint('[TFLiteService]   Input shape: ${inputTensors[0].shape}');
+          debugPrint('[TFLiteService]   Input type: ${inputTensors[0].type}');
+        }
+        if (outputTensors.isNotEmpty) {
+          debugPrint(
+            '[TFLiteService]   Output shape: ${outputTensors[0].shape}',
+          );
+          debugPrint('[TFLiteService]   Output type: ${outputTensors[0].type}');
+        }
+      } catch (e) {
+        debugPrint('[TFLiteService] ℹ️ Could not read tensor metadata: $e');
+      }
+
       _isInitialized = true;
-      debugPrint('TFLite model initialized successfully');
+      debugPrint('[TFLiteService] ✅ TFLite model initialized successfully');
     } catch (e) {
-      debugPrint('Error initializing TFLite: $e');
+      debugPrint('[TFLiteService] ❌ ERROR initializing TFLite: $e');
       _isInitialized = false;
     }
   }
@@ -86,11 +144,13 @@ class TFLiteService {
 
   Future<WasteClassification?> classifyImage(Uint8List imageData) async {
     if (!_isInitialized) {
-      debugPrint('TFLite not initialized');
+      debugPrint('[TFLiteService] ERROR: TFLite not initialized');
       return null;
     }
 
     try {
+      debugPrint('[TFLiteService] Starting classification...');
+
       // Prepare input - resize to 224x224 (common for image classification models)
       final input = _preprocessImage(imageData);
 
@@ -115,13 +175,25 @@ class TFLiteService {
         }
       }
 
-      // Only return if confidence is above threshold (50%)
-      if (maxConfidence < 0.5) {
+      debugPrint(
+        '[TFLiteService] Top prediction: ${labels[maxIndex]} (${(maxConfidence * 100).toStringAsFixed(1)}%)',
+      );
+
+      // Return result if confidence is above 20% (lowered threshold for better UX)
+      // User can confirm or retry if they want higher confidence
+      if (maxConfidence < 0.2) {
+        debugPrint(
+          '[TFLiteService] Confidence too low (< 20%): $maxConfidence',
+        );
         return null;
       }
 
       final label = labels[maxIndex];
       final points = _getPoints(label);
+
+      debugPrint(
+        '[TFLiteService] Classification SUCCESS: $label with $maxConfidence confidence, ${points} points',
+      );
 
       return WasteClassification(
         label: label,
@@ -129,8 +201,89 @@ class TFLiteService {
         points: points,
       );
     } catch (e) {
-      debugPrint('Error classifying image: $e');
+      debugPrint('[TFLiteService] ERROR in classifyImage: $e');
       return null;
+    }
+  }
+
+  /// Get top N predictions for waste classification
+  /// Returns list of predictions sorted by confidence (highest first)
+  Future<List<WastePrediction>> classifyImageTopN(
+    Uint8List imageData, {
+    int topN = 3,
+  }) async {
+    if (!_isInitialized) {
+      debugPrint('[TFLiteService] ERROR: TFLite not initialized');
+      return [];
+    }
+
+    try {
+      debugPrint('[TFLiteService] Starting top-N classification (N=$topN)...');
+
+      // Prepare input
+      final input = _preprocessImage(imageData);
+
+      // Run inference
+      final List<List<double>> output = List.generate(
+        1,
+        (_) => List.filled(labels.length, 0.0),
+      );
+      interpreter?.run(input, output);
+
+      final List<double> predictions = output.isNotEmpty
+          ? List<double>.from(output[0])
+          : <double>[];
+
+      debugPrint('[TFLiteService] Got ${predictions.length} predictions');
+
+      // Create list of (index, confidence) pairs
+      List<MapEntry<int, double>> indexed = [];
+      for (int i = 0; i < predictions.length; i++) {
+        indexed.add(MapEntry(i, predictions[i]));
+      }
+
+      // Sort by confidence descending
+      indexed.sort((a, b) => b.value.compareTo(a.value));
+
+      // Create WastePrediction objects for top N
+      final topPredictions = <WastePrediction>[];
+      for (int i = 0; i < math.min(topN, indexed.length); i++) {
+        final index = indexed[i].key;
+        final confidence = indexed[i].value;
+        final label = labels[index];
+        final points = _getPoints(label);
+
+        debugPrint(
+          '[TFLiteService] Rank ${i + 1}: $label - ${(confidence * 100).toStringAsFixed(1)}%',
+        );
+
+        topPredictions.add(
+          WastePrediction(
+            label: label,
+            confidence: confidence,
+            points: points,
+            rank: i + 1,
+          ),
+        );
+      }
+
+      // Keep low-confidence results visible so users can confirm or rescan.
+      // PERBAIKAN: Ubah threshold dari 0.05 menjadi 0.01 (1%)
+      // Ini memungkinkan hasil dengan confidence lebih rendah untuk ditampilkan
+      if (topPredictions.isNotEmpty && topPredictions[0].confidence < 0.01) {
+        debugPrint(
+          '[TFLiteService] Top confidence too low (${topPredictions[0].confidence}): filtering out',
+        );
+        return [];
+      }
+
+      debugPrint(
+        '[TFLiteService] ✅ Top-N classification SUCCESS: ${topPredictions.length} results',
+      );
+      return topPredictions;
+    } catch (e) {
+      debugPrint('[TFLiteService] ERROR in classifyImageTopN: $e');
+      return [];
     }
   }
 
@@ -143,7 +296,9 @@ class TFLiteService {
         throw Exception('Image decoding failed');
       }
 
-      // Resize to 224x224 (common input size for mobile models)
+      image = img.bakeOrientation(image);
+
+      // Resize to 224x224 (common input size for mobile image models)
       const int inputSize = 224;
       final img.Image resized = img.copyResize(
         image,
@@ -151,18 +306,16 @@ class TFLiteService {
         height: inputSize,
       );
 
-      // Normalize and convert to input tensor format
-      // Most TFLite models expect values normalized to [-1, 1] or [0, 1]
+      // Teachable Machine unquantized image models expect float values in [-1, 1].
       final List<List<List<List<double>>>> input = List.generate(
         1,
         (_) => List.generate(
           inputSize,
           (y) => List.generate(inputSize, (x) {
             final pixel = resized.getPixelSafe(x, y);
-            // Extract RGB channels and normalize to [0, 1]
-            final r = (pixel.r as int) / 255.0;
-            final g = (pixel.g as int) / 255.0;
-            final b = (pixel.b as int) / 255.0;
+            final r = ((pixel.r as int) - 127.5) / 127.5;
+            final g = ((pixel.g as int) - 127.5) / 127.5;
+            final b = ((pixel.b as int) - 127.5) / 127.5;
             return [r, g, b];
           }),
         ),
@@ -207,6 +360,33 @@ class TFLiteService {
 
     // Default fallback
     return wastePointsMap['other'] ?? 10;
+  }
+
+  /// Get waste category (Organic/Anorganic) based on waste type label
+  /// Returns 'Organic' or 'Anorganic'
+  String getWasteCategory(String label) {
+    final labelKey = label.toLowerCase().trim();
+
+    // Direct lookup first
+    if (wasteCategoryMap.containsKey(labelKey)) {
+      return wasteCategoryMap[labelKey] ?? 'Anorganic';
+    }
+
+    // Try with underscore replacement
+    final labelWithUnderscore = labelKey.replaceAll(' ', '_');
+    if (wasteCategoryMap.containsKey(labelWithUnderscore)) {
+      return wasteCategoryMap[labelWithUnderscore] ?? 'Anorganic';
+    }
+
+    // Try partial matching
+    for (var key in wasteCategoryMap.keys) {
+      if (labelKey.contains(key) || key.contains(labelKey)) {
+        return wasteCategoryMap[key] ?? 'Anorganic';
+      }
+    }
+
+    // Default fallback
+    return 'Anorganic';
   }
 
   void dispose() {

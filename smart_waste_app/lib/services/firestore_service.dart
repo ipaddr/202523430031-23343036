@@ -424,16 +424,42 @@ class FirestoreService {
     required String name,
     required String kind,
     String description = '',
+    String category = '',
+    String modelLabel = '',
+    int points = 0,
+    bool isTfliteLabel = false,
   }) async {
     try {
-      await _firestore.collection('waste_categories').add({
+      final existing = await _firestore
+          .collection('waste_categories')
+          .where('name', isEqualTo: name)
+          .where('kind', isEqualTo: kind)
+          .limit(1)
+          .get();
+
+      final payload = {
         'name': name,
         'kind': kind,
         'description': description,
-        'total_weight': 0,
-        'createdAt': FieldValue.serverTimestamp(),
+        if (category.isNotEmpty) 'category': category,
+        if (modelLabel.isNotEmpty) 'model_label': modelLabel,
+        if (points > 0) 'points': points,
+        'is_tflite_label': isTfliteLabel,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (existing.docs.isNotEmpty) {
+        await existing.docs.first.reference.set(
+          payload,
+          SetOptions(merge: true),
+        );
+      } else {
+        await _firestore.collection('waste_categories').add({
+          ...payload,
+          'total_weight': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
       return true;
     } catch (e) {
       debugPrint('Error creating waste category: $e');

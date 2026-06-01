@@ -185,54 +185,19 @@ class ProfileScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Akun Section
-                    const Text(
-                      'Akun',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileMenuItem(
-                      icon: Icons.person,
-                      label: 'Edit Profil',
-                      onTap: () {},
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.location_on,
-                      label: 'Alamat Saya',
-                      onTap: () {},
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.credit_card,
-                      label: 'Metode Pembayaran',
-                      onTap: () {},
-                    ),
-
-                    const SizedBox(height: 24),
-
                     // Pengaturan Section
                     const Text(
                       'Pengaturan',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.black,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    _ProfileMenuItem(
-                      icon: Icons.notifications,
-                      label: 'Notifikasi',
-                      onTap: () {},
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.privacy_tip,
-                      label: 'Privasi & Keamanan',
-                      onTap: () {},
-                    ),
                     Consumer<ThemeProvider>(
                       builder: (context, themeProvider, _) {
                         return _ProfileMenuItemWithSwitch(
@@ -244,38 +209,6 @@ class ProfileScreen extends StatelessWidget {
                           onChanged: (value) => themeProvider.setTheme(value),
                         );
                       },
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.help_outline,
-                      label: 'Bantuan & Dukungan',
-                      onTap: () {},
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Tentang Section
-                    const Text(
-                      'Tentang',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileMenuItem(
-                      icon: Icons.info_outline,
-                      label: 'Tentang Aplikasi',
-                      onTap: () {},
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.description,
-                      label: 'Syarat & Ketentuan',
-                      onTap: () {},
-                    ),
-                    _ProfileMenuItem(
-                      icon: Icons.policy,
-                      label: 'Kebijakan Privasi',
-                      onTap: () {},
                     ),
 
                     const SizedBox(height: 28),
@@ -413,6 +346,7 @@ class _StatCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(AppPadding.lg),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
@@ -422,7 +356,10 @@ class _StatCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.1)],
+                colors: [
+                  color.withValues(alpha: 0.3),
+                  color.withValues(alpha: 0.1),
+                ],
               ),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
