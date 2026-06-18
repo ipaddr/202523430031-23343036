@@ -78,8 +78,7 @@ class FirebaseAuthService {
       // Send email verification
       await userCredential.user!.sendEmailVerification();
 
-      // Save user data to Firestore with emailVerified flag
-      await _firestore.collection('users').doc(uid).set({
+      final Map<String, dynamic> userData = {
         'uid': uid,
         'name': name,
         'email': email,
@@ -92,7 +91,21 @@ class FirebaseAuthService {
         'emailVerified': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (role == 'petugas') {
+        userData.addAll({
+          'assignedRequests': 0,
+          'completedRequests': 0,
+          'total_tasks': 0,
+          'completed_tasks': 0,
+          'average_rating': 0.0,
+          'total_ratings': 0,
+        });
+      }
+
+      // Save user data to Firestore with emailVerified flag
+      await _firestore.collection('users').doc(uid).set(userData);
 
       return {
         'success': true,
@@ -194,7 +207,7 @@ class FirebaseAuthService {
 
         final uid = createdUser.uid;
 
-        await _firestore.collection('users').doc(uid).set({
+        final Map<String, dynamic> userData = {
           'uid': uid,
           'name': normalizedName,
           'email': normalizedEmail,
@@ -208,7 +221,20 @@ class FirebaseAuthService {
           'createdBy': adminUser.uid,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-        });
+        };
+
+        if (normalizedRole == 'petugas') {
+          userData.addAll({
+            'assignedRequests': 0,
+            'completedRequests': 0,
+            'total_tasks': 0,
+            'completed_tasks': 0,
+            'average_rating': 0.0,
+            'total_ratings': 0,
+          });
+        }
+
+        await _firestore.collection('users').doc(uid).set(userData);
 
         bool verificationEmailSent = false;
         if (sendVerificationEmail) {
@@ -276,10 +302,24 @@ class FirebaseAuthService {
     required String role,
   }) async {
     try {
-      await _firestore.collection('users').doc(userId).update({
-        'role': _normalizeRole(role),
+      final normalizedRole = _normalizeRole(role);
+      final Map<String, dynamic> updateData = {
+        'role': normalizedRole,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (normalizedRole == 'petugas') {
+        updateData.addAll({
+          'assignedRequests': 0,
+          'completedRequests': 0,
+          'total_tasks': 0,
+          'completed_tasks': 0,
+          'average_rating': 0.0,
+          'total_ratings': 0,
+        });
+      }
+
+      await _firestore.collection('users').doc(userId).update(updateData);
       return true;
     } catch (e) {
       debugPrint('Error updating user role: $e');

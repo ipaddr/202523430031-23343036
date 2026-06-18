@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../utils/constants.dart';
+import '../../services/petugas_task_service.dart';
 
 class PetugasHistoryScreen extends StatefulWidget {
   const PetugasHistoryScreen({super.key});
@@ -12,8 +15,9 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   String _selectedFilter = 'semua';
-
-  // History akan diambil dari Firebase menggunakan PetugasTaskService
+  final _taskService = PetugasTaskService();
+  String? _officerId;
+  bool _isResolvingOfficer = true;
 
   @override
   void initState() {
@@ -23,6 +27,20 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
       vsync: this,
     );
     _animationController.forward();
+    _resolveCurrentOfficerId();
+  }
+
+  Future<void> _resolveCurrentOfficerId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final officerId = await _taskService.resolveOfficerId(
+      authUid: user?.uid ?? '',
+      email: user?.email,
+    );
+    if (!mounted) return;
+    setState(() {
+      _officerId = officerId;
+      _isResolvingOfficer = false;
+    });
   }
 
   @override
@@ -33,35 +51,126 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isResolvingOfficer || _officerId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final statusFilter = _selectedFilter == 'selesai'
+        ? 'completed'
+        : _selectedFilter == 'dibatalkan'
+        ? 'rejected'
+        : 'semua';
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
-
             const SizedBox(height: 16),
-
-            // Filter Chips
             _buildFilters(),
-
             const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: statusFilter == 'semua'
+                    ? _taskService.getAssignedTasks(_officerId!)
+                    : _taskService.getTasksByStatus(_officerId!, statusFilter),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppPadding.lg),
+                        child: Text(
+                          'Gagal memuat riwayat:\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+                  }
+                  final tasks = snapshot.data ?? [];
+                  final filtered = statusFilter == 'semua'
+                      ? tasks
+                            .where(
+                              (t) =>
+                                  t['status'] == 'completed' ||
+                                  t['status'] == 'rejected',
+                            )
+                            .toList()
+                      : tasks;
 
-            // History List
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'Riwayat akan ditampilkan di sini\n(Data dari Firebase)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF94A3B8)),
-                ),
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.history_rounded,
+                            size: 64,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'Belum ada riwayat tugas',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppPadding.lg,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final task = filtered[index];
+                      return _HistoryCard(item: _mapTaskToHistory(task));
+                    },
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Map<String, dynamic> _mapTaskToHistory(Map<String, dynamic> task) {
+    final type = (task['waste_type'] ?? task['wasteType'] ?? 'Lainnya')
+        .toString();
+    final status = task['status'] == 'completed' ? 'selesai' : 'dibatalkan';
+    final address = (task['address'] ?? task['location'] ?? '-').toString();
+    final weight = task['actual_weight'] != null
+        ? '${(task['actual_weight'] as num).toStringAsFixed(1)} kg'
+        : '0 kg';
+    final points = task['actual_weight'] != null
+        ? (task['actual_weight'] as num).toInt()
+        : 0;
+
+    String dateStr = '-';
+    final ts = task['completed_at'] ?? task['created_at'] ?? task['createdAt'];
+    if (ts is Timestamp) {
+      final d = ts.toDate();
+      dateStr = '${d.day}/${d.month}/${d.year}';
+    }
+
+    return {
+      'type': type,
+      'status': status,
+      'address': address,
+      'date': dateStr,
+      'weight': weight,
+      'points': points,
+    };
   }
 
   Widget _buildHeader() {
@@ -180,11 +289,8 @@ class _PetugasHistoryScreenState extends State<PetugasHistoryScreen>
       ),
     );
   }
-
-
 }
 
-// ignore: unused_element
 class _HistoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
 

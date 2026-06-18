@@ -149,7 +149,7 @@ class NotificationService {
       };
 
       await _firestore
-          .collection('officers')
+          .collection('users')
           .doc(officerId)
           .collection('notifications')
           .add(notification);
@@ -182,7 +182,7 @@ class NotificationService {
       };
 
       await _firestore
-          .collection('officers')
+          .collection('users')
           .doc(officerId)
           .collection('notifications')
           .add(notification);
@@ -275,7 +275,7 @@ class NotificationService {
   /// Get officer notifications stream
   Stream<QuerySnapshot> getOfficerNotifications(String officerId) {
     return _firestore
-        .collection('officers')
+        .collection('users')
         .doc(officerId)
         .collection('notifications')
         .orderBy('timestamp', descending: true)
@@ -289,21 +289,13 @@ class NotificationService {
     required bool isOfficer,
   }) async {
     try {
-      if (isOfficer) {
-        await _firestore
-            .collection('officers')
-            .doc(userId)
-            .collection('notifications')
-            .doc(notificationId)
-            .update({'read': true});
-      } else {
-        await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('notifications')
-            .doc(notificationId)
-            .update({'read': true});
-      }
+      // Both officers and users now use the 'users' collection
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'read': true});
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     }
@@ -316,21 +308,13 @@ class NotificationService {
     required bool isOfficer,
   }) async {
     try {
-      if (isOfficer) {
-        await _firestore
-            .collection('officers')
-            .doc(userId)
-            .collection('notifications')
-            .doc(notificationId)
-            .delete();
-      } else {
-        await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('notifications')
-            .doc(notificationId)
-            .delete();
-      }
+      // Both officers and users now use the 'users' collection
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(notificationId)
+          .delete();
     } catch (e) {
       debugPrint('Error deleting notification: $e');
     }
@@ -339,19 +323,13 @@ class NotificationService {
   /// Get unread notification count
   Future<int> getUnreadCount(String userId, {bool isOfficer = false}) async {
     try {
-      final query = isOfficer
-          ? _firestore
-                .collection('officers')
-                .doc(userId)
-                .collection('notifications')
-                .where('read', isEqualTo: false)
-          : _firestore
-                .collection('users')
-                .doc(userId)
-                .collection('notifications')
-                .where('read', isEqualTo: false);
-
-      final snapshot = await query.count().get();
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .where('read', isEqualTo: false)
+          .count()
+          .get();
       return snapshot.count ?? 0;
     } catch (e) {
       debugPrint('Error getting unread count: $e');

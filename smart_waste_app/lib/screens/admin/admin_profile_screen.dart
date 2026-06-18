@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/constants.dart';
 import '../../utils/auth_provider.dart';
 import '../../utils/theme_provider.dart';
@@ -169,34 +170,40 @@ class AdminProfileScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      children: [
-                        _StatCard(
-                          label: 'Total Request',
-                          value: '45',
-                          color: const Color(0xFF2196F3),
-                        ),
-                        _StatCard(
-                          label: 'Sampah',
-                          value: '1.2T',
-                          color: const Color(0xFF4CAF50),
-                        ),
-                        _StatCard(
-                          label: 'Poin Sistem',
-                          value: '850',
-                          color: AppColors.secondary,
-                        ),
-                        _StatCard(
-                          label: 'Hari Kerja',
-                          value: '28',
-                          color: const Color(0xFFFF9800),
-                        ),
-                      ],
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _fetchAdminStats(),
+                      builder: (context, snapshot) {
+                        final stats = snapshot.data ?? {};
+                        return GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          children: [
+                            _StatCard(
+                              label: 'Total Request',
+                              value: '${stats['totalRequests'] ?? 0}',
+                              color: const Color(0xFF2196F3),
+                            ),
+                            _StatCard(
+                              label: 'Sampah',
+                              value: _formatWeight(stats['totalWeight'] ?? 0),
+                              color: const Color(0xFF4CAF50),
+                            ),
+                            _StatCard(
+                              label: 'Total User',
+                              value: '${stats['totalUsers'] ?? 0}',
+                              color: AppColors.secondary,
+                            ),
+                            _StatCard(
+                              label: 'Petugas Aktif',
+                              value: '${stats['totalOfficers'] ?? 0}',
+                              color: const Color(0xFFFF9800),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 28),
 
@@ -297,9 +304,11 @@ class AdminProfileScreen extends StatelessWidget {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          authProvider.logout();
-                          Navigator.of(context).pushReplacementNamed('/login');
+                        onPressed: () async {
+                          Navigator.of(
+                            context,
+                          ).pushNamedAndRemoveUntil('/login', (route) => false);
+                          await authProvider.logout();
                         },
                         icon: const Icon(Icons.logout, size: 18),
                         label: const Text('Keluar Akun', style: AppText.button),
@@ -322,6 +331,60 @@ class AdminProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _fetchAdminStats() async {
+    try {
+      final requestsSnap = await FirebaseFirestore.instance
+          .collection('pickup_requests')
+          .get();
+      final usersSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+
+      double totalWeight = 0;
+      for (var doc in requestsSnap.docs) {
+        final status = doc['status']?.toString() ?? '';
+        if (status == 'completed' && doc['actual_weight'] != null) {
+          totalWeight += (doc['actual_weight'] as num).toDouble();
+        }
+      }
+
+      final totalUsers = usersSnap.docs
+          .where(
+            (doc) =>
+                (doc.data()['role'] ?? '').toString().toLowerCase() == 'user',
+          )
+          .length;
+      final totalOfficers = usersSnap.docs
+          .where(
+            (doc) =>
+                (doc.data()['role'] ?? '').toString().toLowerCase() ==
+                'petugas',
+          )
+          .length;
+
+      return {
+        'totalRequests': requestsSnap.size,
+        'totalWeight': totalWeight,
+        'totalUsers': totalUsers,
+        'totalOfficers': totalOfficers,
+      };
+    } catch (e) {
+      return {
+        'totalRequests': 0,
+        'totalWeight': 0,
+        'totalUsers': 0,
+        'totalOfficers': 0,
+      };
+    }
+  }
+
+  String _formatWeight(num weight) {
+    if (weight >= 1000) {
+      return '${(weight / 1000).toStringAsFixed(1)}T';
+    }
+    return '${weight.toInt()}kg';
   }
 }
 

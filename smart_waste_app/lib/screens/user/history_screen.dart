@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../services/firestore_service.dart';
+import '../../services/petugas_task_service.dart';
 import '../../utils/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/theme_colors.dart';
@@ -83,6 +84,10 @@ class _HistoryScreenState extends State<HistoryScreen>
               statusColor: _statusColor(status),
               delay: index * 100,
               animationController: _animationController,
+              requestId: request['id']?.toString(),
+              officerId: request['assigned_officer_id']?.toString(),
+              existingRating: request['user_rating'],
+              isCompleted: status == 'completed',
             );
           }),
         );
@@ -589,6 +594,10 @@ class _HistoryItem extends StatefulWidget {
   final Color statusColor;
   final int delay;
   final AnimationController animationController;
+  final String? requestId;
+  final String? officerId;
+  final dynamic existingRating;
+  final bool isCompleted;
 
   const _HistoryItem({
     required this.date,
@@ -599,6 +608,10 @@ class _HistoryItem extends StatefulWidget {
     required this.statusColor,
     required this.delay,
     required this.animationController,
+    this.requestId,
+    this.officerId,
+    this.existingRating,
+    this.isCompleted = false,
   });
 
   @override
@@ -741,10 +754,216 @@ class _HistoryItemState extends State<_HistoryItem>
                     ),
                 ],
               ),
+              // Rating section for completed tasks
+              if (widget.isCompleted) _buildRatingSection(),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildRatingSection() {
+    final existingRating = widget.existingRating;
+    final isRated = existingRating is int && existingRating >= 1;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: isRated
+          ? _buildExistingRatingDisplay(existingRating)
+          : _buildRateButton(),
+    );
+  }
+
+  Widget _buildExistingRatingDisplay(int rating) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: const Color(0xFFFFEDD5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
+          const SizedBox(width: 6),
+          const Text(
+            'Rating Anda: ',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF92400E),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          ...List.generate(5, (i) {
+            return Icon(
+              i < rating ? Icons.star_rounded : Icons.star_border_rounded,
+              size: 14,
+              color: const Color(0xFFF59E0B),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRateButton() {
+    return InkWell(
+      onTap: _showRatingDialog,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_border_rounded, size: 16, color: AppColors.primary),
+            SizedBox(width: 6),
+            Text(
+              'Beri Rating Petugas',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRatingDialog() {
+    int selectedRating = 0;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Beri Rating Petugas',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Bagaimana pengalaman pengambilan sampah Anda?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        onPressed: () {
+                          setDialogState(() => selectedRating = index + 1);
+                        },
+                        icon: Icon(
+                          index < selectedRating
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          size: 36,
+                          color: const Color(0xFFF59E0B),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: commentController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'Komentar (opsional)',
+                      hintStyle: const TextStyle(fontSize: 13),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedRating > 0
+                      ? () async {
+                          Navigator.pop(dialogContext);
+                          await _submitRating(
+                            selectedRating,
+                            commentController.text,
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Kirim'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _submitRating(int rating, String comment) async {
+    if (widget.requestId == null || widget.officerId == null) return;
+
+    try {
+      final taskService = PetugasTaskService();
+      final success = await taskService.submitRating(
+        taskId: widget.requestId!,
+        rating: rating,
+        officerId: widget.officerId!,
+        comment: comment.isNotEmpty ? comment : null,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Terima kasih atas rating Anda!'),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal mengirim rating. Coba lagi.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }

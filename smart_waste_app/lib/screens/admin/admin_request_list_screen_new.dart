@@ -266,8 +266,8 @@ class _AdminRequestListScreenState extends State<AdminRequestListScreen>
                                       CurvedAnimation(
                                         parent: _animationController,
                                         curve: Interval(
-                                          0.4 + (index * 0.1),
-                                          0.8 + (index * 0.1),
+                                          (0.4 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
+                                          (0.8 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
                                           curve: Curves.easeOutCubic,
                                         ),
                                       ),

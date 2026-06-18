@@ -46,8 +46,8 @@ class _PetugasInputHasilScreenState extends State<PetugasInputHasilScreen>
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
-            index * 0.15,
-            0.6 + (index * 0.15),
+            (index * 0.1).clamp(0.0, 1.0),
+            (0.6 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
             curve: Curves.easeOutCubic,
           ),
         ),

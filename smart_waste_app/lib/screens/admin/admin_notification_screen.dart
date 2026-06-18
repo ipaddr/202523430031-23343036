@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../utils/constants.dart';
 
 class AdminNotificationScreen extends StatefulWidget {
@@ -12,50 +14,6 @@ class AdminNotificationScreen extends StatefulWidget {
 class _AdminNotificationScreenState extends State<AdminNotificationScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-
-  final List<Map<String, dynamic>> notifications = [
-    {
-      'icon': Icons.add,
-      'title': 'Admin menerima request',
-      'description': 'Andi Saputra mengajukan request sampah organik',
-      'time': '08:30',
-      'read': false,
-      'color': Colors.blue,
-    },
-    {
-      'icon': Icons.assignment_turned_in,
-      'title': 'Request dishujudkan',
-      'description': 'Admin assign petugas untuk request sampah anorganik',
-      'time': '09:15',
-      'read': true,
-      'color': Colors.green,
-    },
-    {
-      'icon': Icons.check_circle,
-      'title': 'Pengambilan berhasil',
-      'description': 'Petugas berhasil mengambil sampah dari lokasi RT 02',
-      'time': '10:25',
-      'read': true,
-      'color': Colors.green,
-    },
-    {
-      'icon': Icons.star,
-      'title': 'Rating positif',
-      'description':
-          'Pelanggan memberikan rating 5 bintang kepada Petugas Andi',
-      'time': '13:44',
-      'read': true,
-      'color': Colors.amber,
-    },
-    {
-      'icon': Icons.info,
-      'title': 'Update sistem',
-      'description': 'Sistem SmartWaste telah diperbarui ke versi 2.1',
-      'time': '15:44',
-      'read': true,
-      'color': Colors.purple,
-    },
-  ];
 
   @override
   void initState() {
@@ -148,32 +106,82 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen>
               // Notifications List
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
-                child: Column(
-                  children: List.generate(
-                    notifications.length,
-                    (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: SlideTransition(
-                        position:
-                            Tween<Offset>(
-                              begin: const Offset(0.5, 0),
-                              end: Offset.zero,
-                            ).animate(
-                              CurvedAnimation(
-                                parent: _animationController,
-                                curve: Interval(
-                                  0.4 + (index * 0.1),
-                                  0.8 + (index * 0.1),
-                                  curve: Curves.easeOutCubic,
-                                ),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('notifications')
+                      .where(
+                        'uid',
+                        isEqualTo: FirebaseAuth.instance.currentUser?.uid ?? '',
+                      )
+                      .orderBy('createdAt', descending: true)
+                      .limit(30)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text(
+                          'Gagal memuat notifikasi',
+                          style: TextStyle(color: Color(0xFF94A3B8)),
+                        ),
+                      );
+                    }
+                    final docs = snapshot.data?.docs ?? [];
+                    if (docs.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              size: 64,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Belum ada notifikasi',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 14,
                               ),
                             ),
-                        child: _NotificationCard(
-                          notification: notifications[index],
+                          ],
                         ),
-                      ),
-                    ),
-                  ),
+                      );
+                    }
+
+                    return Column(
+                      children: List.generate(docs.length, (index) {
+                        final data = Map<String, dynamic>.from(
+                          docs[index].data() as Map,
+                        );
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0.5, 0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: _animationController,
+                                    curve: Interval(
+                                      0.4 + (index * 0.1),
+                                      0.8 + (index * 0.1),
+                                      curve: Curves.easeOutCubic,
+                                    ),
+                                  ),
+                                ),
+                            child: _NotificationCard(
+                              notification: _mapNotification(data),
+                            ),
+                          ),
+                        );
+                      }),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 24),
@@ -182,6 +190,52 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen>
         ),
       ),
     );
+  }
+
+  Map<String, dynamic> _mapNotification(Map<String, dynamic> data) {
+    final type = (data['type'] ?? 'info').toString();
+    IconData icon;
+    Color color;
+    switch (type) {
+      case 'request_received':
+      case 'new_request':
+        icon = Icons.add;
+        color = Colors.blue;
+        break;
+      case 'task_assigned':
+      case 'assigned':
+        icon = Icons.assignment_turned_in;
+        color = Colors.green;
+        break;
+      case 'task_completed':
+        icon = Icons.check_circle;
+        color = Colors.green;
+        break;
+      case 'rating':
+        icon = Icons.star;
+        color = Colors.amber;
+        break;
+      default:
+        icon = Icons.info;
+        color = Colors.purple;
+    }
+
+    String timeStr = '';
+    final ts = data['createdAt'] ?? data['timestamp'];
+    if (ts is Timestamp) {
+      final d = ts.toDate();
+      timeStr =
+          '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    }
+
+    return {
+      'icon': icon,
+      'title': (data['title'] ?? 'Notifikasi').toString(),
+      'description': (data['message'] ?? data['description'] ?? '').toString(),
+      'time': timeStr,
+      'read': data['read'] == true,
+      'color': color,
+    };
   }
 }
 

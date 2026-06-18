@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
   bool _isLoading = false;
+  String _selectedRole = 'user';
 
   late AnimationController _animationController;
   late List<Animation<double>> _staggeredAnimations;
@@ -41,13 +42,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     _staggeredAnimations = List.generate(
-      10,
+      11,
       (index) => Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
-            index * 0.08,
-            0.6 + (index * 0.08),
+            (index * 0.08).clamp(0.0, 1.0),
+            (0.6 + ((index * 0.08).clamp(0.0, 1.0))).clamp(0.0, 1.0),
             curve: Curves.easeOutBack,
           ),
         ),
@@ -121,6 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             phone,
             password,
             confirmPassword,
+            role: _selectedRole,
           );
 
       setState(() => _isLoading = false);
@@ -236,6 +238,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                       children: [
                         _buildAnimatedItem(
                           index: 2,
+                          child: _buildRoleSelector(),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildAnimatedItem(
+                          index: 3,
                           child: _buildInputField(
                             controller: _nameController,
                             label: 'Nama Lengkap',
@@ -245,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 20),
                         _buildAnimatedItem(
-                          index: 3,
+                          index: 4,
                           child: _buildInputField(
                             controller: _emailController,
                             label: 'Email',
@@ -255,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 20),
                         _buildAnimatedItem(
-                          index: 4,
+                          index: 5,
                           child: _buildInputField(
                             controller: _phoneController,
                             label: 'Nomor HP',
@@ -265,7 +272,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 20),
                         _buildAnimatedItem(
-                          index: 5,
+                          index: 6,
                           child: _buildInputField(
                             controller: _passwordController,
                             label: 'Password',
@@ -280,7 +287,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 20),
                         _buildAnimatedItem(
-                          index: 6,
+                          index: 7,
                           child: _buildInputField(
                             controller: _confirmPasswordController,
                             label: 'Konfirmasi Password',
@@ -296,12 +303,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 24),
                         _buildAnimatedItem(
-                          index: 7,
+                          index: 8,
                           child: _buildTermsCheckbox(),
                         ),
                         const SizedBox(height: 32),
                         _buildAnimatedItem(
-                          index: 8,
+                          index: 9,
                           child: _buildRegisterButton(),
                         ),
                       ],
@@ -310,7 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                   const SizedBox(height: 32),
                   _buildAnimatedItem(
-                    index: 9,
+                    index: 10,
                     child: Column(
                       children: [
                         const Text(
@@ -399,6 +406,96 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  Widget _buildRoleSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Jenis Akun',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: Color(0xFF475569),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildRoleOption(
+                value: 'user',
+                label: 'Pengguna',
+                subtitle: 'Warga',
+                icon: Icons.person_outline_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildRoleOption(
+                value: 'petugas',
+                label: 'Petugas',
+                subtitle: 'Pengangkut Sampah',
+                icon: Icons.local_shipping_outlined,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleOption({
+    required String value,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final isSelected = _selectedRole == value;
+    return InkWell(
+      onTap: () => setState(() => _selectedRole = value),
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withAlpha(13)
+              : Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : Theme.of(context).dividerColor,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+              size: 24,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isSelected ? AppColors.primary : const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAnimatedItem({required int index, required Widget child}) {
     return FadeTransition(
       opacity: _staggeredAnimations[index],
@@ -408,8 +505,8 @@ class _RegisterScreenState extends State<RegisterScreen>
               CurvedAnimation(
                 parent: _animationController,
                 curve: Interval(
-                  index * 0.08,
-                  0.6 + (index * 0.08),
+                  (index * 0.08).clamp(0.0, 1.0),
+                  (0.6 + ((index * 0.08).clamp(0.0, 1.0))).clamp(0.0, 1.0),
                   curve: Curves.easeOutCubic,
                 ),
               ),

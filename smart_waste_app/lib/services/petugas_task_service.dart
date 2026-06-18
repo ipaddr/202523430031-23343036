@@ -13,6 +13,9 @@ class PetugasTaskService {
     _firestore = FirebaseFirestore.instance;
   }
 
+  /// Resolves the officer ID used in pickup_requests (assigned_officer_id).
+  /// Admin always stores the Firebase Auth UID as assigned_officer_id,
+  /// so we look up in the 'users' collection (role=petugas) first.
   Future<String> resolveOfficerId({
     required String authUid,
     String? email,
@@ -20,31 +23,53 @@ class PetugasTaskService {
     if (authUid.isEmpty) return '';
 
     try {
-      final directDoc = await _firestore
-          .collection('officers')
-          .doc(authUid)
-          .get();
-      if (directDoc.exists) return directDoc.id;
+      // 1. Check if authUid directly exists in 'users' collection with role petugas
+      final userDoc = await _firestore.collection('users').doc(authUid).get();
+      if (userDoc.exists) {
+        final role = (userDoc.data()?['role'] ?? '').toString().toLowerCase();
+        if (role == 'petugas') {
+          debugPrint('✅ Resolved officer ID from users collection: $authUid');
+          return authUid;
+        }
+      }
 
-      final byUid = await _firestore
-          .collection('officers')
-          .where('uid', isEqualTo: authUid)
-          .limit(1)
-          .get();
-      if (byUid.docs.isNotEmpty) return byUid.docs.first.id;
-
+      // 2. Try finding by email in 'users' collection
       if (email != null && email.isNotEmpty) {
         final byEmail = await _firestore
-            .collection('officers')
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .where('role', isEqualTo: 'petugas')
+            .limit(1)
+            .get();
+        if (byEmail.docs.isNotEmpty) {
+          final docId = byEmail.docs.first.id;
+          debugPrint(
+            '✅ Resolved officer ID by email from users collection: $docId',
+          );
+          return docId;
+        }
+      }
+
+      // 3. Fallback: search users by email (any role)
+      if (email != null && email.isNotEmpty) {
+        final byEmail = await _firestore
+            .collection('users')
             .where('email', isEqualTo: email)
             .limit(1)
             .get();
-        if (byEmail.docs.isNotEmpty) return byEmail.docs.first.id;
+        if (byEmail.docs.isNotEmpty) {
+          final docId = byEmail.docs.first.id;
+          debugPrint('✅ Resolved officer ID by email fallback: $docId');
+          return docId;
+        }
       }
     } catch (e) {
       debugPrint('Could not resolve officer id: $e');
     }
 
+    // Final fallback: return authUid as-is
+    // (admin stores Firebase Auth UID as assigned_officer_id)
+    debugPrint('⚠️ Using authUid as fallback officer ID: $authUid');
     return authUid;
   }
 
@@ -59,13 +84,18 @@ class PetugasTaskService {
           .snapshots()
           .asyncMap((snapshot) async {
             final schedules = await _getActiveSchedules();
-            final tasks = snapshot.docs.map((doc) {
-              return _normalizeTask(
-                doc.id,
-                Map<String, dynamic>.from(doc.data() as Map),
-                schedules,
-              );
-            }).whereType<Map<String, dynamic>>().toList();
+            final tasks = snapshot.docs
+                .map((doc) {
+                  return _normalizeTask(
+                    doc.id,
+                    Map<String, dynamic>.from(doc.data() as Map),
+                    schedules,
+                    requireSchedule: false,
+                    requireApprovedStatus: true,
+                  );
+                })
+                .whereType<Map<String, dynamic>>()
+                .toList();
 
             tasks.sort(_compareTasksBySchedule);
             return tasks;
@@ -91,15 +121,21 @@ class PetugasTaskService {
           .snapshots()
           .asyncMap((snapshot) async {
             final schedules = await _getActiveSchedules();
-            final tasks = snapshot.docs.map((doc) {
-              return _normalizeTask(
-                doc.id,
-                Map<String, dynamic>.from(doc.data() as Map),
-                schedules,
-              );
-            }).whereType<Map<String, dynamic>>().where((task) {
-              return (task['status'] ?? '').toString() == status;
-            }).toList();
+            final tasks = snapshot.docs
+                .map((doc) {
+                  return _normalizeTask(
+                    doc.id,
+                    Map<String, dynamic>.from(doc.data() as Map),
+                    schedules,
+                    requireSchedule: false,
+                    requireApprovedStatus: true,
+                  );
+                })
+                .whereType<Map<String, dynamic>>()
+                .where((task) {
+                  return (task['status'] ?? '').toString() == status;
+                })
+                .toList();
 
             tasks.sort(_compareTasksBySchedule);
             return tasks;
@@ -123,7 +159,8 @@ class PetugasTaskService {
               doc.id,
               Map<String, dynamic>.from(doc.data() as Map),
               schedules,
-              allowWithoutSchedule: true,
+              requireSchedule: false,
+              requireApprovedStatus: false,
             ) ??
             {'id': doc.id, ...Map<String, dynamic>.from(doc.data() as Map)};
       }
@@ -296,12 +333,12 @@ class PetugasTaskService {
     }
   }
 
-  /// Get officer details
+  /// Get officer details from users collection
   Future<Map<String, dynamic>?> getOfficerDetails(String officerId) async {
     try {
-      final doc = await _firestore.collection('officers').doc(officerId).get();
-      if (doc.exists) {
-        return Map<String, dynamic>.from(doc.data() as Map);
+      final userDoc = await _firestore.collection('users').doc(officerId).get();
+      if (userDoc.exists) {
+        return Map<String, dynamic>.from(userDoc.data() as Map);
       }
       return null;
     } catch (e) {
@@ -315,32 +352,36 @@ class PetugasTaskService {
       final snapshot = await _firestore.collection('schedules').get();
       final today = DateTime.now();
 
-      return snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data() as Map);
-        final date = _readDate(data['date']);
-        final status = (data['status'] ?? 'Aktif').toString();
-        final startTime = (data['start_time'] ?? '').toString();
-        final endTime = (data['end_time'] ?? '').toString();
+      return snapshot.docs
+          .map((doc) {
+            final data = Map<String, dynamic>.from(doc.data() as Map);
+            final date = _readDate(data['date']);
+            final status = (data['status'] ?? 'Aktif').toString();
+            final startTime = (data['start_time'] ?? '').toString();
+            final endTime = (data['end_time'] ?? '').toString();
 
-        return {
-          'id': doc.id,
-          ...data,
-          'category': (data['category'] ?? data['area'] ?? '').toString(),
-          'route': (data['route'] ?? data['zone'] ?? '').toString(),
-          'time': (data['time'] ?? '$startTime - $endTime').toString(),
-          'date_value': date,
-          'status': status,
-        };
-      }).where((schedule) {
-        final status = schedule['status'].toString().toLowerCase();
-        final date = schedule['date_value'];
-        final isActive = status == 'aktif' || status == 'active';
-        final isUsableDate = date is! DateTime ||
-            _isSameDay(date, today) ||
-            date.isAfter(_startOfDay(today));
+            return {
+              'id': doc.id,
+              ...data,
+              'category': (data['category'] ?? data['area'] ?? '').toString(),
+              'route': (data['route'] ?? data['zone'] ?? '').toString(),
+              'time': (data['time'] ?? '$startTime - $endTime').toString(),
+              'date_value': date,
+              'status': status,
+            };
+          })
+          .where((schedule) {
+            final status = schedule['status'].toString().toLowerCase();
+            final date = schedule['date_value'];
+            final isActive = status == 'aktif' || status == 'active';
+            final isUsableDate =
+                date is! DateTime ||
+                _isSameDay(date, today) ||
+                date.isAfter(_startOfDay(today));
 
-        return isActive && isUsableDate;
-      }).toList();
+            return isActive && isUsableDate;
+          })
+          .toList();
     } catch (e) {
       debugPrint('Could not load active schedules: $e');
       return [];
@@ -351,13 +392,14 @@ class PetugasTaskService {
     String id,
     Map<String, dynamic> data,
     List<Map<String, dynamic>> schedules, {
-    bool allowWithoutSchedule = false,
+    bool requireSchedule = true,
+    bool requireApprovedStatus = true,
   }) {
     final status = (data['status'] ?? '').toString();
-    if (!_isApprovedTaskStatus(status) && !allowWithoutSchedule) return null;
+    if (requireApprovedStatus && !_isApprovedTaskStatus(status)) return null;
 
     final schedule = _matchingSchedule(data, schedules);
-    if (schedule == null && !allowWithoutSchedule) return null;
+    if (requireSchedule && schedule == null) return null;
 
     final enriched = {'id': id, ...data};
     if (schedule != null) {
@@ -375,9 +417,12 @@ class PetugasTaskService {
   }
 
   bool _isApprovedTaskStatus(String status) {
-    return const {'accepted', 'in_progress', 'arrived', 'completed'}.contains(
-      status.toLowerCase(),
-    );
+    return const {
+      'accepted',
+      'in_progress',
+      'arrived',
+      'completed',
+    }.contains(status.toLowerCase());
   }
 
   Map<String, dynamic>? _matchingSchedule(
@@ -441,9 +486,9 @@ class PetugasTaskService {
       return 1;
     }
 
-    final timeCompare = (a['schedule_time'] ?? '')
-        .toString()
-        .compareTo((b['schedule_time'] ?? '').toString());
+    final timeCompare = (a['schedule_time'] ?? '').toString().compareTo(
+      (b['schedule_time'] ?? '').toString(),
+    );
     if (timeCompare != 0) return timeCompare;
 
     final createdA = _readDate(a['created_at'] ?? a['createdAt']);
@@ -545,12 +590,11 @@ class PetugasTaskService {
 
       await _incrementWasteCategoryTotal(wasteType, actualWeight);
 
-      // Update officer statistics
-      await _firestore.collection('officers').doc(officerId).update({
+      // Update officer statistics in 'users' collection (petugas stored in users)
+      await _firestore.collection('users').doc(officerId).update({
         'completedRequests': FieldValue.increment(1),
-        'assignedRequests': FieldValue.increment(
-          -1,
-        ), // Decrement assigned count
+        'assignedRequests': FieldValue.increment(-1),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       debugPrint('✅ Task completed with notifications: $taskId');
@@ -558,6 +602,89 @@ class PetugasTaskService {
     } catch (e) {
       debugPrint('❌ Error completing task with notifications: $e');
       return false;
+    }
+  }
+
+  /// Submit a rating for a completed task's officer
+  /// Updates the officer's average rating in the officers collection
+  Future<bool> submitRating({
+    required String taskId,
+    required int rating, // 1-5
+    required String officerId,
+    String? comment,
+  }) async {
+    try {
+      // Save rating on the pickup request
+      await _firestore.collection('pickup_requests').doc(taskId).update({
+        'user_rating': rating,
+        'user_rating_comment': comment ?? '',
+        'rated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      // Recalculate officer average rating
+      await _recalculateOfficerRating(officerId);
+
+      debugPrint(
+        'Rating submitted: task=$taskId, rating=$rating, officer=$officerId',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error submitting rating: $e');
+      return false;
+    }
+  }
+
+  /// Recalculate officer's average rating from all rated tasks
+  Future<void> _recalculateOfficerRating(String officerId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('pickup_requests')
+          .where('assigned_officer_id', isEqualTo: officerId)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      int totalRating = 0;
+      int ratedCount = 0;
+
+      for (final doc in snapshot.docs) {
+        final r = doc['user_rating'];
+        if (r is int && r >= 1 && r <= 5) {
+          totalRating += r;
+          ratedCount++;
+        }
+      }
+
+      final avgRating = ratedCount > 0 ? totalRating / ratedCount : 0.0;
+
+      // Update in users collection (petugas stored here)
+      await _firestore.collection('users').doc(officerId).update({
+        'average_rating': double.parse(avgRating.toStringAsFixed(1)),
+        'total_ratings': ratedCount,
+        'rating_updated_at': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error recalculating officer rating: $e');
+    }
+  }
+
+  /// Get officer's rating info (average rating and total ratings)
+  Future<Map<String, dynamic>> getOfficerRating(String officerId) async {
+    try {
+      // Try users collection first
+      final doc = await _firestore.collection('users').doc(officerId).get();
+      if (doc.exists) {
+        final data = doc.data();
+        return {
+          'average_rating':
+              (data?['average_rating'] as num?)?.toDouble() ?? 0.0,
+          'total_ratings': data?['total_ratings'] as int? ?? 0,
+        };
+      }
+      return {'average_rating': 0.0, 'total_ratings': 0};
+    } catch (e) {
+      debugPrint('Error fetching officer rating: $e');
+      return {'average_rating': 0.0, 'total_ratings': 0};
     }
   }
 

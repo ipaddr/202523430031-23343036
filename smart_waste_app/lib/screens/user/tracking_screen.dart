@@ -100,8 +100,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
     );
 
-    final truckLat = _truckData!['latitude'] as double?;
-    final truckLng = _truckData!['longitude'] as double?;
+    final truckLat = (_truckData!['latitude'] as num?)?.toDouble();
+    final truckLng = (_truckData!['longitude'] as num?)?.toDouble();
 
     if (truckLat != null && truckLng != null) {
       final truckMarker = Marker(
@@ -138,8 +138,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void _animateCameraToBounds() async {
     if (_userLocation == null || _truckData == null) return;
 
-    final truckLat = _truckData!['latitude'] as double?;
-    final truckLng = _truckData!['longitude'] as double?;
+    final truckLat = (_truckData!['latitude'] as num?)?.toDouble();
+    final truckLng = (_truckData!['longitude'] as num?)?.toDouble();
 
     if (truckLat != null && truckLng != null) {
       final bounds = LatLngBounds(
@@ -557,8 +557,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
         ? _trackingService.calculateDistance(
             _userLocation!.latitude,
             _userLocation!.longitude,
-            _truckData!['latitude'] ?? 0.0,
-            _truckData!['longitude'] ?? 0.0,
+            (_truckData!['latitude'] as num?)?.toDouble() ?? 0.0,
+            (_truckData!['longitude'] as num?)?.toDouble() ?? 0.0,
           )
         : 0.0;
 

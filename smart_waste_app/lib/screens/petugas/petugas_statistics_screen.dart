@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../utils/constants.dart';
+import '../../services/petugas_task_service.dart';
 
 class PetugasStatisticsScreen extends StatefulWidget {
   const PetugasStatisticsScreen({super.key});
@@ -12,6 +14,9 @@ class PetugasStatisticsScreen extends StatefulWidget {
 class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  final _taskService = PetugasTaskService();
+  String? _officerId;
+  bool _isResolvingOfficer = true;
 
   @override
   void initState() {
@@ -21,6 +26,20 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
       vsync: this,
     );
     _animationController.forward();
+    _resolveCurrentOfficerId();
+  }
+
+  Future<void> _resolveCurrentOfficerId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final officerId = await _taskService.resolveOfficerId(
+      authUid: user?.uid ?? '',
+      email: user?.email,
+    );
+    if (!mounted) return;
+    setState(() {
+      _officerId = officerId;
+      _isResolvingOfficer = false;
+    });
   }
 
   @override
@@ -31,6 +50,10 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isResolvingOfficer || _officerId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -38,28 +61,30 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.all(AppPadding.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSummaryCard(),
-                    const SizedBox(height: 32),
-                    _buildSectionTitle('Performa Mingguan'),
-                    const SizedBox(height: 16),
-                    _buildBarChart(),
-                    const SizedBox(height: 32),
-                    _buildSectionTitle('Distribusi Sampah'),
-                    const SizedBox(height: 16),
-                    _buildWasteBreakdown(),
-                    const SizedBox(height: 32),
-                    _buildSectionTitle('Kepuasan Pelanggan'),
-                    const SizedBox(height: 16),
-                    _buildRatingCard(),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _taskService.getAssignedTasks(_officerId!),
+                builder: (context, snapshot) {
+                  final tasks = snapshot.data ?? [];
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.all(AppPadding.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSummaryCard(tasks),
+                        const SizedBox(height: 32),
+                        _buildSectionTitle('Distribusi Sampah'),
+                        const SizedBox(height: 16),
+                        _buildWasteBreakdown(tasks),
+                        const SizedBox(height: 32),
+                        _buildSectionTitle('Kepuasan Pelanggan'),
+                        const SizedBox(height: 16),
+                        _buildRatingCard(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -128,7 +153,17 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(List<Map<String, dynamic>> tasks) {
+    final completed = tasks.where((t) => t['status'] == 'completed').length;
+    double totalWeight = 0;
+    for (var task in tasks) {
+      if (task['status'] == 'completed' && task['actual_weight'] != null) {
+        totalWeight += (task['actual_weight'] as num).toDouble();
+      }
+    }
+    final weightStr = totalWeight.toStringAsFixed(1);
+    final points = totalWeight.toInt();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -151,7 +186,7 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Minggu Ini',
+            'Total Keseluruhan',
             style: TextStyle(
               color: Color(0xFFD0E8D8),
               fontWeight: FontWeight.w500,
@@ -159,9 +194,9 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '8 Tugas Selesai',
-            style: TextStyle(
+          Text(
+            '$completed Tugas Selesai',
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 24,
@@ -172,7 +207,7 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
             children: [
               _buildSummaryItem(
                 'Total Berat',
-                '125.5 kg',
+                '$weightStr kg',
                 Icons.fitness_center_rounded,
               ),
               Container(
@@ -181,7 +216,11 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
                 color: Colors.white.withValues(alpha: 0.2),
                 margin: const EdgeInsets.symmetric(horizontal: 20),
               ),
-              _buildSummaryItem('Poin Diraih', '850 pts', Icons.stars_rounded),
+              _buildSummaryItem(
+                'Poin Diraih',
+                '$points pts',
+                Icons.stars_rounded,
+              ),
             ],
           ),
         ],
@@ -229,26 +268,52 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
     );
   }
 
-  Widget _buildBarChart() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
-      ),
-      child: const Center(
-        child: Text(
-          'Grafik akan ditampilkan di sini\n(Data dari Firebase)',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF94A3B8)),
+  Widget _buildWasteBreakdown(List<Map<String, dynamic>> tasks) {
+    final completedTasks = tasks
+        .where((t) => t['status'] == 'completed')
+        .toList();
+    final Map<String, double> wasteMap = {};
+    double totalWeight = 0;
+
+    for (var task in completedTasks) {
+      final type = (task['waste_type'] ?? task['wasteType'] ?? 'Lainnya')
+          .toString();
+      final weight = task['actual_weight'] != null
+          ? (task['actual_weight'] as num).toDouble()
+          : 0.0;
+      wasteMap[type] = (wasteMap[type] ?? 0) + weight;
+      totalWeight += weight;
+    }
+
+    if (wasteMap.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
         ),
-      ),
-    );
-  }
+        child: const Center(
+          child: Text(
+            'Belum ada data distribusi sampah',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFF94A3B8)),
+          ),
+        ),
+      );
+    }
 
+    final colors = [
+      const Color(0xFF3B82F6),
+      const Color(0xFF10B981),
+      const Color(0xFFEF4444),
+      const Color(0xFFF59E0B),
+      const Color(0xFF8B5CF6),
+    ];
 
-  Widget _buildWasteBreakdown() {
+    final entries = wasteMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -257,23 +322,20 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
         border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
       ),
       child: Column(
-        children: [
-          _buildBreakdownItem(
-            'Anorganik',
-            '60.5 kg',
-            48.2,
-            const Color(0xFF3B82F6),
-          ),
-          const SizedBox(height: 20),
-          _buildBreakdownItem(
-            'Organik',
-            '42.0 kg',
-            33.5,
-            const Color(0xFF10B981),
-          ),
-          const SizedBox(height: 20),
-          _buildBreakdownItem('B3', '23.0 kg', 18.3, const Color(0xFFEF4444)),
-        ],
+        children: List.generate(entries.length, (index) {
+          final entry = entries[index];
+          final pct = totalWeight > 0 ? (entry.value / totalWeight) * 100 : 0.0;
+          final color = colors[index % colors.length];
+          return Padding(
+            padding: EdgeInsets.only(top: index > 0 ? 20 : 0),
+            child: _buildBreakdownItem(
+              entry.key,
+              '${entry.value.toStringAsFixed(1)} kg',
+              pct,
+              color,
+            ),
+          );
+        }),
       ),
     );
   }
@@ -344,67 +406,109 @@ class _PetugasStatisticsScreenState extends State<PetugasStatisticsScreen>
   }
 
   Widget _buildRatingCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Rating Rata-rata',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _taskService.getOfficerRating(_officerId!),
+      builder: (context, snapshot) {
+        final ratingData =
+            snapshot.data ?? {'average_rating': 0.0, 'total_ratings': 0};
+        final avgRating =
+            (ratingData['average_rating'] as num?)?.toDouble() ?? 0.0;
+        final totalRatings = ratingData['total_ratings'] as int? ?? 0;
+
+        if (totalRatings == 0) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+                width: 1.5,
               ),
-              const SizedBox(height: 4),
-              Row(
+            ),
+            child: const Center(
+              child: Column(
                 children: [
-                  const Text(
-                    '4.8',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
+                  Icon(
+                    Icons.rate_review_outlined,
+                    size: 40,
+                    color: Color(0xFF94A3B8),
                   ),
-                  const SizedBox(width: 8),
-                  Row(
-                    children: List.generate(5, (index) {
-                      return Icon(
-                        index < 4
-                            ? Icons.star_rounded
-                            : Icons.star_half_rounded,
-                        color: const Color(0xFFFFD700),
-                        size: 20,
-                      );
-                    }),
+                  SizedBox(height: 8),
+                  Text(
+                    'Belum ada rating dari pengguna',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                   ),
                 ],
               ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Theme.of(context).dividerColor,
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Big rating display
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    avgRating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF59E0B),
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '/ 5.0',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Star display
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return Icon(
+                    index < avgRating.round()
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    size: 28,
+                    color: const Color(0xFFF59E0B),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Dari $totalRatings rating pengguna',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Sangat Baik',
-              style: TextStyle(
-                color: Color(0xFF059669),
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

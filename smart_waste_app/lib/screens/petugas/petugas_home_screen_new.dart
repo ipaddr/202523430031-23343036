@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import 'petugas_dashboard_screen.dart';
 import 'petugas_task_list_screen.dart';
+import 'petugas_schedule_screen.dart';
 import 'petugas_statistics_screen.dart';
 import 'petugas_profile_screen.dart';
 
@@ -18,6 +19,7 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
   final List<Widget> _screens = [
     const PetugasDashboardScreen(),
     const PetugasTaskListScreen(),
+    const PetugasScheduleScreen(),
     const PetugasStatisticsScreen(),
     const PetugasProfileScreen(),
   ];
@@ -25,7 +27,8 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      resizeToAvoidBottomInset: false,
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -38,8 +41,9 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
               onTap: (index) => setState(() => _currentIndex = index),
@@ -49,13 +53,45 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
               unselectedItemColor: const Color(0xFF94A3B8),
               iconSize: 22,
               type: BottomNavigationBarType.fixed,
-              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+              selectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
               items: [
-                _buildNavItem(Icons.home_rounded, Icons.home_outlined, 'Beranda', 0),
-                _buildNavItem(Icons.assignment_rounded, Icons.assignment_outlined, 'Tugas', 1),
-                _buildNavItem(Icons.bar_chart_rounded, Icons.bar_chart_outlined, 'Statistik', 2),
-                _buildNavItem(Icons.person_rounded, Icons.person_outlined, 'Profil', 3),
+                _buildNavItem(
+                  Icons.home_rounded,
+                  Icons.home_outlined,
+                  'Beranda',
+                  0,
+                ),
+                _buildNavItem(
+                  Icons.assignment_rounded,
+                  Icons.assignment_outlined,
+                  'Tugas',
+                  1,
+                ),
+                _buildNavItem(
+                  Icons.calendar_month_rounded,
+                  Icons.calendar_month_outlined,
+                  'Jadwal',
+                  2,
+                ),
+                _buildNavItem(
+                  Icons.bar_chart_rounded,
+                  Icons.bar_chart_outlined,
+                  'Statistik',
+                  3,
+                ),
+                _buildNavItem(
+                  Icons.person_rounded,
+                  Icons.person_outlined,
+                  'Profil',
+                  4,
+                ),
               ],
             ),
           ),
@@ -64,14 +100,21 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
     );
   }
 
-  BottomNavigationBarItem _buildNavItem(IconData selectedIcon, IconData unselectedIcon, String label, int index) {
+  BottomNavigationBarItem _buildNavItem(
+    IconData selectedIcon,
+    IconData unselectedIcon,
+    String label,
+    int index,
+  ) {
     bool isSelected = _currentIndex == index;
     return BottomNavigationBarItem(
       icon: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Icon(isSelected ? selectedIcon : unselectedIcon, size: 22),
@@ -80,4 +123,3 @@ class _PetugasHomeScreenNewState extends State<PetugasHomeScreenNew> {
     );
   }
 }
-

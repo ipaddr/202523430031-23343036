@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 
 class PetugasPickupProcessScreen extends StatefulWidget {
-  const PetugasPickupProcessScreen({super.key});
+  final String taskId;
+
+  const PetugasPickupProcessScreen({super.key, this.taskId = ''});
 
   @override
   State<PetugasPickupProcessScreen> createState() =>
@@ -30,8 +32,8 @@ class _PetugasPickupProcessScreenState extends State<PetugasPickupProcessScreen>
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
-            index * 0.1,
-            0.6 + (index * 0.1),
+            (index * 0.1).clamp(0.0, 1.0),
+            (0.6 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
             curve: Curves.easeOutCubic,
           ),
         ),
@@ -342,7 +344,11 @@ class _PetugasPickupProcessScreenState extends State<PetugasPickupProcessScreen>
               ],
             ),
             child: ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/input_hasil'),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/input_hasil',
+                arguments: {'taskId': widget.taskId},
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
