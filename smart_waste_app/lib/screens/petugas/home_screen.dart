@@ -23,7 +23,8 @@ class _PetugasHomeScreenState extends State<PetugasHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      resizeToAvoidBottomInset: false,
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -533,9 +534,10 @@ class _PetugasProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        context.read<AuthProvider>().logout();
-                        Navigator.of(context).pushReplacementNamed('/login');
+                      onPressed: () async {
+                        final authProvider = context.read<AuthProvider>();
+                        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                        await authProvider.logout();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,

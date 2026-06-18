@@ -14,7 +14,9 @@ import 'history_screen.dart';
 import 'statistics_screen.dart';
 
 class RequestPickupScreen extends StatefulWidget {
-  const RequestPickupScreen({super.key});
+  final String? initialWasteType;
+
+  const RequestPickupScreen({super.key, this.initialWasteType});
 
   @override
   State<RequestPickupScreen> createState() => _RequestPickupScreenState();
@@ -48,6 +50,21 @@ class _RequestPickupScreenState extends State<RequestPickupScreen>
       vsync: this,
     );
     _animationController.forward();
+
+    // Pre-select waste type from scan result
+    if (widget.initialWasteType != null) {
+      _selectedWaste = _matchWasteType(widget.initialWasteType!);
+    }
+  }
+
+  /// Match AI scan category to available waste options
+  String _matchWasteType(String category) {
+    final cat = category.toLowerCase();
+    if (cat == 'organik') return 'Organik';
+    if (cat == 'anorganik') return 'Anorganik';
+    // Map specific labels to closest option
+    if (cat.contains('kertas') || cat == 'paper') return 'Kertas';
+    return 'Anorganik'; // default fallback
   }
 
   @override

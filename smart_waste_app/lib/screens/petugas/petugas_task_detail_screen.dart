@@ -29,8 +29,8 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
-            index * 0.1,
-            0.6 + (index * 0.1),
+            (index * 0.1).clamp(0.0, 1.0),
+            (0.6 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
             curve: Curves.easeOutCubic,
           ),
         ),
@@ -343,6 +343,8 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
           Text(
             label,
             style: const TextStyle(
+
+
               fontSize: 11,
               color: Color(0xFF94A3B8),
               fontWeight: FontWeight.w500,
@@ -368,8 +370,12 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
         task['location'] ?? task['address'] ?? 'Lokasi tidak tersedia';
     final fullAddress =
         task['address'] ?? task['location'] ?? 'Alamat tidak tersedia';
-    final latitude = task['latitude'] ?? task['user_lat'] ?? 0.0;
-    final longitude = task['longitude'] ?? task['user_lon'] ?? 0.0;
+    final latitude = (task['latitude'] ?? task['user_lat'] ?? 0.0) is num
+        ? (task['latitude'] ?? task['user_lat'] ?? 0.0).toDouble()
+        : double.tryParse((task['latitude'] ?? task['user_lat'] ?? 0.0).toString()) ?? 0.0;
+    final longitude = (task['longitude'] ?? task['user_lon'] ?? 0.0) is num
+        ? (task['longitude'] ?? task['user_lon'] ?? 0.0).toDouble()
+        : double.tryParse((task['longitude'] ?? task['user_lon'] ?? 0.0).toString()) ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -431,6 +437,7 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
                   'lng': longitude,
                   'address': fullAddress,
                   'type': task['waste_type'] ?? 'Sampah',
+                  'taskId': task['id'] ?? '',
                 },
               ),
               icon: const Icon(Icons.near_me_rounded, size: 18),
@@ -475,7 +482,11 @@ class _PetugasTaskDetailScreenState extends State<PetugasTaskDetailScreen>
             ],
           ),
           child: ElevatedButton(
-            onPressed: () => Navigator.pushNamed(context, '/pickup_process'),
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/pickup_process',
+              arguments: {'taskId': widget.task?['id'] ?? ''},
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,

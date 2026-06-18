@@ -306,8 +306,8 @@ class _ExpandableGuideCardState extends State<_ExpandableGuideCard> {
             CurvedAnimation(
               parent: widget.animationController,
               curve: Interval(
-                0.4 + (widget.delay / 1000),
-                0.8 + (widget.delay / 1000),
+                (0.4 + (widget.delay / 1000)).clamp(0.0, 1.0),
+                (0.8 + (widget.delay / 1000)).clamp(0.0, 1.0),
                 curve: Curves.easeOutCubic,
               ),
             ),
@@ -456,8 +456,8 @@ class _TipItem extends StatelessWidget {
             CurvedAnimation(
               parent: animationController,
               curve: Interval(
-                0.5 + (delay / 1000),
-                0.9 + (delay / 1000),
+                (0.5 + (delay / 1000)).clamp(0.0, 1.0),
+                (0.9 + (delay / 1000)).clamp(0.0, 1.0),
                 curve: Curves.easeOutCubic,
               ),
             ),

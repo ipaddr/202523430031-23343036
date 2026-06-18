@@ -23,7 +23,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      resizeToAvoidBottomInset: false,
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -327,7 +328,9 @@ class _ManageUsersScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.1,
+                        ),
                         child: Text(
                           'U${index + 1}',
                           style: const TextStyle(
@@ -551,9 +554,10 @@ class _AdminProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        context.read<AuthProvider>().logout();
-                        Navigator.of(context).pushReplacementNamed('/login');
+                      onPressed: () async {
+                        final authProvider = context.read<AuthProvider>();
+                        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                        await authProvider.logout();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,

@@ -70,13 +70,13 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
         context,
         listen: false,
       );
-      
+
       // Check camera initialization
       if (!cameraProvider.isInitialized || cameraProvider.controller == null) {
         print('[ScanWaste] ❌ Camera not initialized');
         print('[ScanWaste] isInitialized: ${cameraProvider.isInitialized}');
         print('[ScanWaste] controller: ${cameraProvider.controller}');
-        
+
         if (mounted) {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -88,11 +88,11 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
         }
         return;
       }
-      
+
       // Check TFLite initialization
       if (!_tfliteService.isInitialized) {
         print('[ScanWaste] ❌ TFLite not initialized');
-        
+
         if (mounted) {
           setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +120,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
     } catch (e) {
       print('[ScanWaste] ❌ ERROR capturing image: $e');
       print('[ScanWaste] Stack trace: ${StackTrace.current}');
-      
+
       if (mounted) {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -552,7 +552,10 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
       final confidence = prediction.confidence * 100;
       final isHighConfidence = confidence >= 50;
       final category = _tfliteService.getWasteCategory(prediction.label);
-      final categoryIcon = category == 'Organic' ? '🌱' : '♻️';
+      final categoryIcon = category == 'Organik' ? '🌱' : '♻️';
+      final translatedLabel = _tfliteService.getTranslatedLabel(
+        prediction.label,
+      );
 
       return Padding(
         padding: EdgeInsets.only(
@@ -578,7 +581,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
                       ),
                       Expanded(
                         child: Text(
-                          prediction.label,
+                          translatedLabel,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -628,7 +631,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: category == 'Organic'
+                    color: category == 'Organik'
                         ? const Color(0xFF6B8E23).withValues(alpha: 0.2)
                         : const Color(0xFF4A90E2).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -642,7 +645,7 @@ class _ScanWasteScreenState extends State<ScanWasteScreen>
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: category == 'Organic'
+                          color: category == 'Organik'
                               ? const Color(0xFF6B8E23)
                               : const Color(0xFF4A90E2),
                         ),

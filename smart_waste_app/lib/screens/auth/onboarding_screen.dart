@@ -231,49 +231,57 @@ class OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              color: item.backgroundColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: item.color.withAlpha(77),
-                  blurRadius: 30,
-                  offset: const Offset(0, 15),
-                ),
-              ],
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppPadding.lg,
+          vertical: AppPadding.lg,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 60),
+            Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                color: item.backgroundColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: item.color.withAlpha(77),
+                    blurRadius: 30,
+                    offset: const Offset(0, 15),
+                  ),
+                ],
+              ),
+              child: Icon(item.icon, size: 140, color: item.color),
             ),
-            child: Icon(item.icon, size: 140, color: item.color),
-          ),
-          const SizedBox(height: 60),
-          Text(
-            item.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.black,
-              height: 1.3,
+            const SizedBox(height: 40),
+            Text(
+              item.title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: AppColors.black,
+                height: 1.3,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            item.description,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.grey,
-              height: 1.5,
+            const SizedBox(height: 16),
+            Text(
+              item.description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.grey,
+                height: 1.5,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 140),
+          ],
+        ),
       ),
     );
   }

@@ -627,8 +627,8 @@ class _StatisticItem extends StatelessWidget {
             CurvedAnimation(
               parent: animationController,
               curve: Interval(
-                0.4 + (delay / 1000),
-                0.8 + (delay / 1000),
+                (0.4 + (delay / 1000)).clamp(0.0, 1.0),
+                (0.8 + (delay / 1000)).clamp(0.0, 1.0),
                 curve: Curves.easeOutCubic,
               ),
             ),

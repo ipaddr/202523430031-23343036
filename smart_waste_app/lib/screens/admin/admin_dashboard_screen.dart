@@ -18,9 +18,6 @@ class AdminDashboardScreen extends StatelessWidget {
           final usersSnapshot = await FirebaseFirestore.instance
               .collection('users')
               .get();
-          final officersSnapshot = await FirebaseFirestore.instance
-              .collection('officers')
-              .get();
 
           final userCount = usersSnapshot.docs
               .where(
@@ -29,7 +26,13 @@ class AdminDashboardScreen extends StatelessWidget {
                     'user',
               )
               .length;
-          final officerCount = officersSnapshot.docs.length;
+          final officerCount = usersSnapshot.docs
+              .where(
+                (doc) =>
+                    (doc.data()['role'] ?? '').toString().toLowerCase() ==
+                    'petugas',
+              )
+              .length;
 
           int pending = 0;
           int active = 0;
@@ -574,8 +577,8 @@ class AdminDashboardScreen extends StatelessWidget {
                         ),
                         _buildMenuCard(
                           context,
-                          'Petugas',
-                          Icons.person_outline,
+                          'Admin',
+                          Icons.admin_panel_settings_rounded,
                           const Color(0xFFE91E63),
                           '/admin_officers',
                         ),

@@ -27,6 +27,7 @@ class _AdminHomeScreenNewState extends State<AdminHomeScreenNew> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: _tabs[_selectedTabIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -40,8 +41,9 @@ class _AdminHomeScreenNewState extends State<AdminHomeScreenNew> {
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: BottomNavigationBar(
               currentIndex: _selectedTabIndex,
               onTap: (index) => setState(() => _selectedTabIndex = index),

@@ -96,8 +96,12 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
           'phone': _text(data['user_phone'] ?? data['phone']),
           'notes': _text(data['notes']),
           'user_id': _text(data['user_id'] ?? data['uid'] ?? data['userId']),
-          'lat': data['user_lat'] ?? data['latitude'] ?? 0.0,
-          'lon': data['user_lon'] ?? data['longitude'] ?? 0.0,
+          'lat': (data['user_lat'] ?? data['latitude'] ?? 0.0) is num
+              ? (data['user_lat'] ?? data['latitude'] ?? 0.0).toDouble()
+              : double.tryParse((data['user_lat'] ?? data['latitude'] ?? 0.0).toString()) ?? 0.0,
+          'lon': (data['user_lon'] ?? data['longitude'] ?? 0.0) is num
+              ? (data['user_lon'] ?? data['longitude'] ?? 0.0).toDouble()
+              : double.tryParse((data['user_lon'] ?? data['longitude'] ?? 0.0).toString()) ?? 0.0,
         };
 
         return _buildDetailScreen(req);
@@ -126,8 +130,12 @@ class _AdminRequestDetailScreenState extends State<AdminRequestDetailScreen>
       'phone': _text(data['user_phone'] ?? data['phone']),
       'notes': _text(data['notes']),
       'user_id': _text(data['user_id'] ?? data['uid'] ?? data['userId']),
-      'lat': data['user_lat'] ?? data['latitude'] ?? 0.0,
-      'lon': data['user_lon'] ?? data['longitude'] ?? 0.0,
+      'lat': (data['user_lat'] ?? data['latitude'] ?? 0.0) is num
+          ? (data['user_lat'] ?? data['latitude'] ?? 0.0).toDouble()
+          : double.tryParse((data['user_lat'] ?? data['latitude'] ?? 0.0).toString()) ?? 0.0,
+      'lon': (data['user_lon'] ?? data['longitude'] ?? 0.0) is num
+          ? (data['user_lon'] ?? data['longitude'] ?? 0.0).toDouble()
+          : double.tryParse((data['user_lon'] ?? data['longitude'] ?? 0.0).toString()) ?? 0.0,
     };
   }
 

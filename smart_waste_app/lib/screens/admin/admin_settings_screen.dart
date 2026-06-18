@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/auth_provider.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({Key? key}) : super(key: key);
@@ -159,9 +161,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                             ).animate(
                               CurvedAnimation(
                                 parent: _animationController,
-                                curve: const Interval(
-                                  0.4 + 0.3,
-                                  0.8 + 0.3,
+                                curve: Interval((0.4 + 0.3).clamp(0.0, 1.0), (0.8 + 0.3).clamp(0.0, 1.0),
                                   curve: Curves.easeOutCubic,
                                 ),
                               ),
@@ -341,9 +341,11 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                         width: double.infinity,
                         height: 50,
                         child: GestureDetector(
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pushReplacementNamed('/login'),
+                          onTap: () async {
+                            final authProvider = context.read<AuthProvider>();
+                            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                            await authProvider.logout();
+                          },
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
@@ -400,8 +402,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
               CurvedAnimation(
                 parent: _animationController,
                 curve: Interval(
-                  0.4 + (index * 0.1),
-                  0.8 + (index * 0.1),
+                  (0.4 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
+                  (0.8 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
                   curve: Curves.easeOutCubic,
                 ),
               ),

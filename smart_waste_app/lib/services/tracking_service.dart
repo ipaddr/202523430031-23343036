@@ -67,8 +67,8 @@ class TrackingService {
         final data = doc.data();
         if (data != null && data.containsKey('truck_location')) {
           return {
-            'latitude': data['truck_location']['latitude'],
-            'longitude': data['truck_location']['longitude'],
+            'latitude': (data['truck_location']['latitude'] as num?)?.toDouble(),
+            'longitude': (data['truck_location']['longitude'] as num?)?.toDouble(),
             'driver_name': data['driver_name'] ?? 'Petugas',
             'estimated_time': data['estimated_arrival_time'] ?? '',
             'status': data['status'] ?? 'pending',
@@ -93,8 +93,8 @@ class TrackingService {
             final data = doc.data();
             if (data != null && data.containsKey('truck_location')) {
               return {
-                'latitude': data['truck_location']['latitude'],
-                'longitude': data['truck_location']['longitude'],
+                'latitude': (data['truck_location']['latitude'] as num?)?.toDouble(),
+                'longitude': (data['truck_location']['longitude'] as num?)?.toDouble(),
                 'driver_name': data['driver_name'] ?? 'Petugas',
                 'estimated_time': data['estimated_arrival_time'] ?? '',
                 'status': data['status'] ?? 'pending',

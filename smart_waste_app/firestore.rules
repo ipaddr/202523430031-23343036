@@ -46,7 +46,7 @@ service cloud.firestore {
       return isSelf(userId) &&
         request.resource.data.uid == userId &&
         request.resource.data.email == request.auth.token.email &&
-        request.resource.data.role == "user" &&
+        (request.resource.data.role == "user" || request.resource.data.role == "petugas") &&
         request.resource.data.status == "Aktif";
     }
 
@@ -96,7 +96,10 @@ service cloud.firestore {
     function pickupRequestAssignedToMe(data) {
       return signedIn() &&
         (data.officer_id == request.auth.uid ||
-         data.assigned_officer_id == request.auth.uid);
+         data.assigned_officer_id == request.auth.uid ||
+         (exists(/databases/$(database)/documents/officers/$(data.assigned_officer_id)) &&
+          (get(/databases/$(database)/documents/officers/$(data.assigned_officer_id)).data.uid == request.auth.uid ||
+           get(/databases/$(database)/documents/officers/$(data.assigned_officer_id)).data.email == request.auth.token.email)));
     }
 
     function ownsNotification(data) {
@@ -116,8 +119,32 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function canUpdateOfficerRating() {
+      return signedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "average_rating",
+          "total_ratings",
+          "rating_updated_at"
+        ]);
+    }
+
+    function canCreateOwnOfficerDoc(officerId) {
+      return isSelf(officerId) &&
+        request.resource.data.uid == officerId &&
+        request.resource.data.role == "petugas" &&
+        request.resource.data.status == "Aktif";
+    }
+
     match /officers/{officerId} {
-      allow get, list, create, update, delete: if isAdmin();
+      allow get, list: if signedIn();
+      allow create: if isAdmin() || canCreateOwnOfficerDoc(officerId);
+      allow update: if isAdmin() || 
+        (signedIn() && (
+          canUpdateOfficerRating() ||
+          (resource.data.email == request.auth.token.email &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(["uid", "updatedAt"]))
+        ));
+      allow delete: if isAdmin();
     }
 
     match /users/{userId}/notifications/{notificationId} {
@@ -132,6 +159,18 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || isSelf(officerId);
     }
 
+    function canRateOwnRequest(data) {
+      return signedIn() &&
+        (data.uid == request.auth.uid || data.user_id == request.auth.uid) &&
+        data.status == "completed" &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "user_rating",
+          "user_rating_comment",
+          "rated_at",
+          "updated_at"
+        ]);
+    }
+
     match /pickup_requests/{requestId} {
       allow get, list: if isAdmin() ||
         ownsPickupRequest(resource.data) ||
@@ -139,7 +178,9 @@ service cloud.firestore {
       allow create: if isAdmin() ||
         (ownsPickupRequest(request.resource.data) &&
           request.resource.data.status == "pending");
-      allow update: if isAdmin() || pickupRequestAssignedToMe(resource.data);
+      allow update: if isAdmin() ||
+        pickupRequestAssignedToMe(resource.data) ||
+        canRateOwnRequest(resource.data);
       allow delete: if isAdmin();
     }
 

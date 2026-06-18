@@ -33,7 +33,7 @@ class RequestAssignmentService {
 
       // Get officer details
       final officerDoc = await _firestore
-          .collection('officers')
+          .collection('users')
           .doc(officerId)
           .get();
       if (!officerDoc.exists) {
@@ -63,9 +63,12 @@ class RequestAssignmentService {
           'User';
       final wasteType =
           requestData['waste_type'] ?? requestData['wasteType'] ?? 'Unknown';
-      final userLat = requestData['user_lat'] ?? requestData['latitude'] ?? 0.0;
-      final userLon =
-          requestData['user_lon'] ?? requestData['longitude'] ?? 0.0;
+      final userLat = (requestData['user_lat'] ?? requestData['latitude'] ?? 0.0) is num
+          ? (requestData['user_lat'] ?? requestData['latitude'] ?? 0.0).toDouble()
+          : double.tryParse((requestData['user_lat'] ?? requestData['latitude'] ?? 0.0).toString()) ?? 0.0;
+      final userLon = (requestData['user_lon'] ?? requestData['longitude'] ?? 0.0) is num
+          ? (requestData['user_lon'] ?? requestData['longitude'] ?? 0.0).toDouble()
+          : double.tryParse((requestData['user_lon'] ?? requestData['longitude'] ?? 0.0).toString()) ?? 0.0;
 
       // Calculate estimated arrival time
       final estimatedArrival = DateTime.now().add(
@@ -99,7 +102,7 @@ class RequestAssignmentService {
       );
 
       // Update officer's assigned count
-      await _firestore.collection('officers').doc(officerId).update({
+      await _firestore.collection('users').doc(officerId).update({
         'assignedRequests': FieldValue.increment(1),
         'lastAssignment': FieldValue.serverTimestamp(),
       });
@@ -184,7 +187,8 @@ class RequestAssignmentService {
 
       // First try to get officers with status 'Aktif'
       var snapshot = await _firestore
-          .collection('officers')
+          .collection('users')
+          .where('role', isEqualTo: 'petugas')
           .where('status', isEqualTo: 'Aktif')
           .get();
 
@@ -197,7 +201,10 @@ class RequestAssignmentService {
         debugPrint(
           '[getAvailableOfficers] ⚠️  No officers with "Aktif" status, fetching ALL officers...',
         );
-        snapshot = await _firestore.collection('officers').get();
+        snapshot = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'petugas')
+            .get();
         debugPrint(
           '[getAvailableOfficers] Query 2: Found ${snapshot.docs.length} TOTAL officers in collection',
         );
@@ -287,7 +294,7 @@ class RequestAssignmentService {
   /// Get officer details
   Future<Map<String, dynamic>?> getOfficerDetails(String officerId) async {
     try {
-      final doc = await _firestore.collection('officers').doc(officerId).get();
+      final doc = await _firestore.collection('users').doc(officerId).get();
       if (doc.exists) {
         return {'id': doc.id, ...Map<String, dynamic>.from(doc.data() as Map)};
       }
@@ -337,7 +344,7 @@ class RequestAssignmentService {
 
       // Decrement officer's assigned count
       if (officerId != null) {
-        await _firestore.collection('officers').doc(officerId).update({
+        await _firestore.collection('users').doc(officerId).update({
           'assignedRequests': FieldValue.increment(-1),
         });
       }

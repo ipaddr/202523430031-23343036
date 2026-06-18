@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:smart_waste_app/main.dart';
+import 'package:smart_waste_app/services/tflite_service.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('TFLiteService Mapping Tests', () {
+    test('getWasteCategory maps categories correctly', () {
+      final service = TFLiteService();
+      expect(service.getWasteCategory('vegetation'), 'Organik');
+      expect(service.getWasteCategory('food organics'), 'Organik');
+      expect(service.getWasteCategory('plastic'), 'Anorganik');
+      expect(service.getWasteCategory('paper'), 'Anorganik');
+      expect(service.getWasteCategory('unknown'), 'Anorganik'); // Default fallback
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('getTranslatedLabel translates labels correctly', () {
+      final service = TFLiteService();
+      expect(service.getTranslatedLabel('vegetation'), 'Vegetasi');
+      expect(service.getTranslatedLabel('plastic'), 'Plastik');
+      expect(service.getTranslatedLabel('food organics'), 'Sisa Makanan');
+      expect(service.getTranslatedLabel('unknown'), 'unknown'); // Fallback to input
+    });
   });
 }
+

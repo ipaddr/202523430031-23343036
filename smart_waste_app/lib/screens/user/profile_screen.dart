@@ -218,9 +218,10 @@ class ProfileScreen extends StatelessWidget {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          context.read<AuthProvider>().logout();
-                          Navigator.of(context).pushReplacementNamed('/login');
+                        onPressed: () async {
+                          final authProvider = context.read<AuthProvider>();
+                          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                          await authProvider.logout();
                         },
                         icon: const Icon(Icons.logout, size: 18),
                         label: const Text('Keluar Akun', style: AppText.button),

@@ -1,4 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../utils/constants.dart';
 
 class PetugasNavigationScreen extends StatefulWidget {
@@ -6,6 +9,7 @@ class PetugasNavigationScreen extends StatefulWidget {
   final double? lng;
   final String? address;
   final String? type;
+  final String? taskId;
 
   const PetugasNavigationScreen({
     super.key,
@@ -13,6 +17,7 @@ class PetugasNavigationScreen extends StatefulWidget {
     this.lng,
     this.address,
     this.type,
+    this.taskId,
   });
 
   @override
@@ -23,7 +28,16 @@ class PetugasNavigationScreen extends StatefulWidget {
 class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  late GoogleMapController _mapController;
   bool _isLoading = true;
+  Position? _currentPosition;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+  double _distanceKm = 0;
+  int _estimatedMinutes = 0;
+
+  // Default location (Jakarta)
+  static const LatLng _defaultLocation = LatLng(-6.2088, 106.8456);
 
   @override
   void initState() {
@@ -33,17 +47,179 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
       vsync: this,
     );
     _animationController.forward();
-    _getCurrentLocation();
+    _initializeMap();
   }
 
-  Future<void> _getCurrentLocation() async {
-    // Keep geolocation logic for permissions/status but we don't need the LatLng for the map anymore
-    setState(() => _isLoading = false);
+  Future<void> _initializeMap() async {
+    try {
+      // Get petugas current location
+      _currentPosition = await _getCurrentLocation();
+
+      if (_currentPosition != null &&
+          widget.lat != null &&
+          widget.lng != null) {
+        _distanceKm = _calculateDistance(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          widget.lat!,
+          widget.lng!,
+        );
+        _estimatedMinutes = (_distanceKm / 0.5 * 60).round(); // ~30km/h avg
+        if (_estimatedMinutes < 1) _estimatedMinutes = 1;
+
+        _buildMarkers();
+        _buildPolyline();
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('Error initializing navigation map: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<Position?> _getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          return null;
+        }
+      }
+
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+      return null;
+    }
+  }
+
+  void _buildMarkers() {
+    final markers = <Marker>{};
+
+    // Petugas current location marker
+    if (_currentPosition != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('petugas_location'),
+          position: LatLng(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+          ),
+          infoWindow: const InfoWindow(title: 'Lokasi Anda'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+        ),
+      );
+    }
+
+    // Destination marker
+    if (widget.lat != null && widget.lng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: LatLng(widget.lat!, widget.lng!),
+          infoWindow: InfoWindow(
+            title: widget.address ?? 'Tujuan',
+            snippet: widget.type ?? 'Sampah',
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
+    }
+
+    setState(() => _markers = markers);
+  }
+
+  void _buildPolyline() {
+    if (_currentPosition != null && widget.lat != null && widget.lng != null) {
+      setState(() {
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: [
+              LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+              LatLng(widget.lat!, widget.lng!),
+            ],
+            color: AppColors.primary,
+            width: 4,
+            geodesic: true,
+          ),
+        };
+      });
+    }
+  }
+
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371.0;
+    final dLat = _toRad(lat2 - lat1);
+    final dLon = _toRad(lon2 - lon1);
+    final a =
+        _sin(dLat / 2) * _sin(dLat / 2) +
+        _cos(_toRad(lat1)) *
+            _cos(_toRad(lat2)) *
+            _sin(dLon / 2) *
+            _sin(dLon / 2);
+    final c = 2 * _atan2(_sqrt(a), _sqrt(1 - a));
+    return R * c;
+  }
+
+  // Math helpers using dart:math
+  double _toRad(double deg) => deg * math.pi / 180;
+  double _sin(double x) => math.sin(x);
+  double _cos(double x) => math.cos(x);
+  double _sqrt(double x) => math.sqrt(x);
+  double _atan2(double y, double x) => math.atan2(y, x);
+
+  void _fitCameraToBounds() {
+    if (_currentPosition == null || widget.lat == null || widget.lng == null) {
+      return;
+    }
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(
+        _currentPosition!.latitude < widget.lat!
+            ? _currentPosition!.latitude
+            : widget.lat!,
+        _currentPosition!.longitude < widget.lng!
+            ? _currentPosition!.longitude
+            : widget.lng!,
+      ),
+      northeast: LatLng(
+        _currentPosition!.latitude > widget.lat!
+            ? _currentPosition!.latitude
+            : widget.lat!,
+        _currentPosition!.longitude > widget.lng!
+            ? _currentPosition!.longitude
+            : widget.lng!,
+      ),
+    );
+
+    _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -53,8 +229,34 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // Placeholder Map
-          _buildMapPlaceholder(),
+          // Google Maps
+          GoogleMap(
+            onMapCreated: (controller) {
+              _mapController = controller;
+              // Fit camera after map is ready
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) _fitCameraToBounds();
+              });
+            },
+            initialCameraPosition: CameraPosition(
+              target: _currentPosition != null
+                  ? LatLng(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                    )
+                  : (widget.lat != null && widget.lng != null
+                        ? LatLng(widget.lat!, widget.lng!)
+                        : _defaultLocation),
+              zoom: 13,
+            ),
+            markers: _markers,
+            polylines: _polylines,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            compassEnabled: true,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+          ),
 
           // Header
           SafeArea(child: _buildHeader()),
@@ -70,33 +272,6 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMapPlaceholder() {
-    return Container(
-      color: const Color(0xFFE2E8F0),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.map_outlined,
-              size: 80,
-              color: const Color(0xFF94A3B8).withAlpha(150),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Mode Navigasi (Peta Dinonaktifkan)',
-              style: TextStyle(
-                color: const Color(0xFF64748B),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -143,17 +318,25 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.search_rounded,
-                    color: Color(0xFF94A3B8),
+                  const Icon(
+                    Icons.navigation_rounded,
+                    color: AppColors.primary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Navigasi ke Lokasi...',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.address ?? 'Navigasi ke Lokasi',
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -222,13 +405,13 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildStatItem(
-          '2.5 km',
+          '${_distanceKm.toStringAsFixed(1)} km',
           'Jarak',
           Icons.straighten_rounded,
           const Color(0xFF3B82F6),
         ),
         _buildStatItem(
-          '8 mnt',
+          '$_estimatedMinutes mnt',
           'Estimasi',
           Icons.timer_rounded,
           const Color(0xFF10B981),
@@ -303,11 +486,30 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
                 ),
               ),
               const Spacer(),
+              if (widget.lat != null && widget.lng != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${widget.lat!.toStringAsFixed(4)}, ${widget.lng!.toStringAsFixed(4)}',
+                    style: const TextStyle(
+                      color: Color(0xFF10B981),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            widget.address ?? 'Perumahan Griya Indah Blok A1',
+            widget.address ?? 'Lokasi tujuan penjemputan',
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -316,7 +518,7 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
           ),
           const SizedBox(height: 6),
           const Text(
-            'Klik tombol "Mulai" untuk navigasi',
+            'Navigasi aktif - ikuti rute pada peta',
             style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
           ),
         ],
@@ -330,9 +532,20 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
         Expanded(
           flex: 1,
           child: _buildIconButton(
-            Icons.phone_rounded,
+            Icons.my_location_rounded,
             const Color(0xFF3B82F6),
-            () {},
+            () {
+              if (_currentPosition != null) {
+                _mapController.animateCamera(
+                  CameraUpdate.newLatLng(
+                    LatLng(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                    ),
+                  ),
+                );
+              }
+            },
           ),
         ),
         const SizedBox(width: 12),
@@ -342,7 +555,11 @@ class _PetugasNavigationScreenState extends State<PetugasNavigationScreen>
             'Konfirmasi Kedatangan',
             Icons.check_circle_rounded,
             () {
-              Navigator.pushNamed(context, '/arrival');
+              Navigator.pushNamed(
+                context,
+                '/arrival',
+                arguments: {'taskId': widget.taskId ?? ''},
+              );
             },
           ),
         ),

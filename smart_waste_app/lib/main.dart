@@ -82,8 +82,6 @@ class MyApp extends StatelessWidget {
               '/user_home': (context) => const UserHomeScreen(),
               '/petugas_home': (context) => const PetugasHomeScreenNew(),
               '/task_list': (context) => const PetugasTaskListScreen(),
-              '/pickup_process': (context) =>
-                  const PetugasPickupProcessScreen(),
               '/task_history': (context) => const PetugasHistoryScreen(),
               '/statistics': (context) => const PetugasStatisticsScreen(),
               '/notifications': (context) => const PetugasNotificationScreen(),
@@ -154,10 +152,28 @@ class MyApp extends StatelessWidget {
       final args = settings.arguments as Map<String, dynamic>?;
       return MaterialPageRoute(
         builder: (context) => PetugasNavigationScreen(
-          lat: args?['lat'],
-          lng: args?['lng'],
+          lat: args?['lat'] != null
+              ? (args?['lat'] is num
+                  ? (args?['lat'] as num).toDouble()
+                  : double.tryParse((args?['lat'] ?? '').toString()) ?? 0.0)
+              : null,
+          lng: args?['lng'] != null
+              ? (args?['lng'] is num
+                  ? (args?['lng'] as num).toDouble()
+                  : double.tryParse((args?['lng'] ?? '').toString()) ?? 0.0)
+              : null,
           address: args?['address'],
           type: args?['type'],
+          taskId: args?['taskId'],
+        ),
+      );
+    }
+
+    if (settings.name == '/pickup_process') {
+      final args = settings.arguments as Map<String, dynamic>?;
+      return MaterialPageRoute(
+        builder: (context) => PetugasPickupProcessScreen(
+          taskId: args?['taskId'] ?? '',
         ),
       );
     }

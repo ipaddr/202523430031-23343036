@@ -150,8 +150,9 @@ class AuthProvider extends ChangeNotifier {
     String email,
     String phone,
     String password,
-    String confirmPassword,
-  ) async {
+    String confirmPassword, {
+    String role = 'user',
+  }) async {
     _isLoading = true;
     notifyListeners();
 
@@ -167,7 +168,7 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         phone: phone,
         password: password,
-        role: 'user',
+        role: role,
       );
 
       _isLoading = false;

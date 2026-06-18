@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../utils/constants.dart';
 import '../../utils/auth_provider.dart';
 import '../../utils/theme_provider.dart';
+import '../../services/petugas_task_service.dart';
 
 class PetugasProfileScreen extends StatefulWidget {
   const PetugasProfileScreen({super.key});
@@ -15,6 +17,9 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late List<Animation<double>> _staggeredAnimations;
+  final _taskService = PetugasTaskService();
+  String? _officerId;
+  bool _isResolvingOfficer = true;
 
   @override
   void initState() {
@@ -30,8 +35,8 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
-            index * 0.1,
-            0.6 + (index * 0.1),
+            (index * 0.1).clamp(0.0, 1.0),
+            (0.6 + ((index * 0.1).clamp(0.0, 1.0))).clamp(0.0, 1.0),
             curve: Curves.easeOutCubic,
           ),
         ),
@@ -39,6 +44,20 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
     );
 
     _animationController.forward();
+    _resolveCurrentOfficerId();
+  }
+
+  Future<void> _resolveCurrentOfficerId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final officerId = await _taskService.resolveOfficerId(
+      authUid: user?.uid ?? '',
+      email: user?.email,
+    );
+    if (!mounted) return;
+    setState(() {
+      _officerId = officerId;
+      _isResolvingOfficer = false;
+    });
   }
 
   @override
@@ -51,43 +70,64 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
   Widget build(BuildContext context) {
     final user = Provider.of<AuthProvider>(context).user;
 
+    if (_isResolvingOfficer || _officerId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            _buildHeader(user),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppPadding.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildSectionTitle('Statistik Kinerja'),
-                  const SizedBox(height: 16),
-                  _buildStatsGrid(),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('Informasi Akun'),
-                  const SizedBox(height: 16),
-                  _buildAccountInfo(user),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('Pengaturan'),
-                  const SizedBox(height: 16),
-                  _buildMenuItems(),
-                  const SizedBox(height: 40),
-                  _buildLogoutButton(),
-                  const SizedBox(height: 40),
-                ],
-              ),
+      body: FutureBuilder<List<dynamic>>(
+        future: Future.wait([
+          _taskService.getTaskStatistics(_officerId!),
+          _taskService.getOfficerDetails(_officerId!),
+        ]),
+        builder: (context, snapshot) {
+          final stats = snapshot.hasData
+              ? snapshot.data![0] as Map<String, int>
+              : <String, int>{};
+          final details = snapshot.hasData && snapshot.data![1] != null
+              ? snapshot.data![1] as Map<String, dynamic>
+              : <String, dynamic>{};
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                _buildHeader(user, details),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppPadding.lg,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildSectionTitle('Statistik Kinerja'),
+                      const SizedBox(height: 16),
+                      _buildStatsGrid(stats),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Informasi Akun'),
+                      const SizedBox(height: 16),
+                      _buildAccountInfo(user, details),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('Pengaturan'),
+                      const SizedBox(height: 16),
+                      _buildMenuItems(),
+                      const SizedBox(height: 40),
+                      _buildLogoutButton(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHeader(user) {
+  Widget _buildHeader(dynamic user, Map<String, dynamic> details) {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -158,7 +198,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
             child: Column(
               children: [
                 Text(
-                  user?.name ?? 'Andi Saputra',
+                  user?.name ?? 'Petugas',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -167,7 +207,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Petugas Kabupaten Bogor 👷',
+                  'Petugas Kebersihan 👷',
                   style: TextStyle(
                     color: Color(0xFFD0E8D8),
                     fontSize: 13,
@@ -187,25 +227,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
                       color: Colors.white.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.stars_rounded,
-                        color: Color(0xFFFFD700),
-                        size: 18,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        '4.8 Rating Kinerja',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _buildRatingBadge(details),
                 ),
               ],
             ),
@@ -230,6 +252,50 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
     );
   }
 
+  Widget _buildRatingBadge(Map<String, dynamic> details) {
+    final avgRating = (details['average_rating'] as num?)?.toDouble() ?? 0.0;
+    final totalRatings = details['total_ratings'] as int? ?? 0;
+
+    if (totalRatings > 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 18),
+          const SizedBox(width: 6),
+          Text(
+            '${avgRating.toStringAsFixed(1)} Rating',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '($totalRatings)',
+            style: const TextStyle(color: Color(0xFFD0E8D8), fontSize: 12),
+          ),
+        ],
+      );
+    }
+
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.shield_rounded, color: Color(0xFF86EFAC), size: 18),
+        SizedBox(width: 8),
+        Text(
+          'Petugas Aktif',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -242,7 +308,10 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(Map<String, int> stats) {
+    final totalTasks = stats['total'] ?? 0;
+    final completed = stats['completed'] ?? 0;
+
     return FadeTransition(
       opacity: _staggeredAnimations[2],
       child: Row(
@@ -250,7 +319,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
           Expanded(
             child: _buildStatCard(
               'Total Tugas',
-              '45',
+              '$totalTasks',
               Icons.assignment_turned_in_rounded,
               const Color(0xFF3B82F6),
             ),
@@ -258,8 +327,8 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
           const SizedBox(width: 16),
           Expanded(
             child: _buildStatCard(
-              'Sampah',
-              '1.2T',
+              'Selesai',
+              '$completed',
               Icons.recycling_rounded,
               const Color(0xFF10B981),
             ),
@@ -323,7 +392,12 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
     );
   }
 
-  Widget _buildAccountInfo(user) {
+  Widget _buildAccountInfo(dynamic user, Map<String, dynamic> details) {
+    final officerId = details['id'] ?? _officerId ?? '-';
+    final area =
+        (details['area'] ?? details['zone'] ?? details['region'] ?? '-')
+            .toString();
+
     return FadeTransition(
       opacity: _staggeredAnimations[3],
       child: Container(
@@ -335,21 +409,21 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
         ),
         child: Column(
           children: [
-            _buildInfoRow('ID Petugas', 'PG-2024-001', Icons.badge_rounded),
+            _buildInfoRow('ID Petugas', '$officerId', Icons.badge_rounded),
             _buildDivider(),
             _buildInfoRow(
               'Email',
-              user?.email ?? 'petugas@mail.com',
+              user?.email ?? (details['email'] ?? '-').toString(),
               Icons.email_rounded,
             ),
             _buildDivider(),
             _buildInfoRow(
               'No. HP',
-              user?.phone ?? '0812-3456-789',
+              user?.phone ?? (details['phone'] ?? '-').toString(),
               Icons.phone_rounded,
             ),
             _buildDivider(),
-            _buildInfoRow('Area Kerja', 'Kabupaten Bogor', Icons.map_rounded),
+            _buildInfoRow('Area Kerja', area, Icons.map_rounded),
           ],
         ),
       ),
@@ -491,7 +565,7 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
         trailing: Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: const Color(0xFF1B7A3E),
+          activeTrackColor: const Color(0xFF1B7A3E),
           inactiveThumbColor: const Color(0xFFCBD5E1),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -514,9 +588,10 @@ class _PetugasProfileScreenState extends State<PetugasProfileScreen>
           ),
         ),
         child: TextButton.icon(
-          onPressed: () {
-            Provider.of<AuthProvider>(context, listen: false).logout();
-            Navigator.of(context).pushReplacementNamed('/login');
+          onPressed: () async {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            await authProvider.logout();
           },
           icon: const Icon(
             Icons.logout_rounded,

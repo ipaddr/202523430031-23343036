@@ -55,21 +55,35 @@ class TFLiteService {
     'other': 10,
   };
 
-  // Waste category mapping - Kategorisasi sampah (Organic/Anorganic)
+  // Indonesian label translation mapping
+  // Maps model English labels to Indonesian display labels
+  static const Map<String, String> labelTranslationMap = {
+    'vegetation': 'Vegetasi',
+    'textile trash': 'Sampah Tekstil',
+    'plastic': 'Plastik',
+    'paper': 'Kertas',
+    'miscellaneous trash': 'Sampah Lainnya',
+    'metal': 'Logam',
+    'glass': 'Kaca',
+    'cardboard': 'Karton',
+    'food organics': 'Sisa Makanan',
+  };
+
+  // Waste category mapping - Kategorisasi sampah (Organik/Anorganik)
   static const Map<String, String> wasteCategoryMap = {
-    'vegetation': 'Organic', // 🌱 Vegetasi
-    'food_organics': 'Organic', // 🌱 Sisa makanan
-    'food organics': 'Organic', // 🌱 Sisa makanan (alt)
-    'paper': 'Organic', // 🌱 Kertas
-    'cardboard': 'Organic', // 🌱 Karton
-    'textile_trash': 'Anorganic', // ♻️ Kain/Tekstil
-    'textile trash': 'Anorganic', // ♻️ Kain/Tekstil (alt)
-    'plastic': 'Anorganic', // ♻️ Plastik
-    'miscellaneous_trash': 'Anorganic', // ♻️ Sampah anorganik lainnya
-    'miscellaneous trash': 'Anorganic', // ♻️ Sampah anorganik lainnya (alt)
-    'metal': 'Anorganic', // ♻️ Logam
-    'glass': 'Anorganic', // ♻️ Kaca
-    'other': 'Anorganic',
+    'vegetation': 'Organik', // 🌱 Vegetasi (mudah terurai)
+    'food_organics': 'Organik', // 🌱 Sisa makanan (mudah terurai)
+    'food organics': 'Organik', // 🌱 Sisa makanan (alt)
+    'textile_trash': 'Anorganik', // ♻️ Kain/Tekstil
+    'textile trash': 'Anorganik', // ♻️ Kain/Tekstil (alt)
+    'plastic': 'Anorganik', // ♻️ Plastik
+    'paper': 'Anorganik', // ♻️ Kertas (dapat didaur ulang)
+    'miscellaneous_trash': 'Anorganik', // ♻️ Sampah anorganik lainnya
+    'miscellaneous trash': 'Anorganik', // ♻️ Sampah anorganik lainnya (alt)
+    'metal': 'Anorganik', // ♻️ Logam (dapat didaur ulang)
+    'glass': 'Anorganik', // ♻️ Kaca (dapat didaur ulang)
+    'cardboard': 'Anorganik', // ♻️ Karton (dapat didaur ulang)
+    'other': 'Anorganik',
   };
 
   factory TFLiteService() {
@@ -97,7 +111,7 @@ class TFLiteService {
       }
 
       interpreter = await Interpreter.fromAsset(
-        'model_unquant.tflite',
+        'assets/model_unquant.tflite',
         options: options,
       );
       debugPrint('[TFLiteService] Model loaded successfully');
@@ -362,31 +376,51 @@ class TFLiteService {
     return wastePointsMap['other'] ?? 10;
   }
 
-  /// Get waste category (Organic/Anorganic) based on waste type label
-  /// Returns 'Organic' or 'Anorganic'
+  /// Get waste category (Organik/Anorganik) based on waste type label
+  /// Returns 'Organik' or 'Anorganik'
   String getWasteCategory(String label) {
     final labelKey = label.toLowerCase().trim();
 
     // Direct lookup first
     if (wasteCategoryMap.containsKey(labelKey)) {
-      return wasteCategoryMap[labelKey] ?? 'Anorganic';
+      return wasteCategoryMap[labelKey] ?? 'Anorganik';
     }
 
     // Try with underscore replacement
     final labelWithUnderscore = labelKey.replaceAll(' ', '_');
     if (wasteCategoryMap.containsKey(labelWithUnderscore)) {
-      return wasteCategoryMap[labelWithUnderscore] ?? 'Anorganic';
+      return wasteCategoryMap[labelWithUnderscore] ?? 'Anorganik';
     }
 
     // Try partial matching
     for (var key in wasteCategoryMap.keys) {
       if (labelKey.contains(key) || key.contains(labelKey)) {
-        return wasteCategoryMap[key] ?? 'Anorganic';
+        return wasteCategoryMap[key] ?? 'Anorganik';
       }
     }
 
     // Default fallback
-    return 'Anorganic';
+    return 'Anorganik';
+  }
+
+  /// Get Indonesian translation of model label
+  /// e.g., "Food Organics" -> "Sisa Makanan"
+  String getTranslatedLabel(String label) {
+    final labelKey = label.toLowerCase().trim();
+
+    // Direct lookup
+    if (labelTranslationMap.containsKey(labelKey)) {
+      return labelTranslationMap[labelKey] ?? label;
+    }
+
+    // Try partial matching
+    for (var key in labelTranslationMap.keys) {
+      if (labelKey.contains(key) || key.contains(labelKey)) {
+        return labelTranslationMap[key] ?? label;
+      }
+    }
+
+    return label;
   }
 
   void dispose() {

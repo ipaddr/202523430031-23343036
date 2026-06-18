@@ -18,11 +18,11 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
   final _firestoreService = FirestoreService();
   static const List<Map<String, String>> _defaultCategories = [
     {
-      'name': 'Organic',
+      'name': 'Organik',
       'description': 'Sampah mudah terurai seperti tanaman dan sisa makanan',
     },
     {
-      'name': 'Anorganic',
+      'name': 'Anorganik',
       'description': 'Sampah sulit terurai seperti plastik, kaca, dan logam',
     },
   ];
@@ -169,6 +169,28 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
             padding: EdgeInsets.all(AppPadding.lg),
             child: Center(
               child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppPadding.lg),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  'Gagal memuat data:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ],
             ),
           );
         }
@@ -320,7 +342,7 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
     final descriptionController = TextEditingController();
     final pointsController = TextEditingController(text: '10');
     final kind = selectedTab == 'Kategori' ? 'kategori' : 'jenis';
-    String selectedCategory = kind == 'kategori' ? '' : 'Anorganic';
+    String selectedCategory = kind == 'kategori' ? '' : 'Anorganik';
 
     try {
       await showDialog<void>(
@@ -352,7 +374,7 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
                             labelText: 'Kategori',
                             border: OutlineInputBorder(),
                           ),
-                          items: const ['Organic', 'Anorganic']
+                          items: const ['Organik', 'Anorganik']
                               .map(
                                 (category) => DropdownMenuItem(
                                   value: category,
@@ -403,16 +425,16 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
                       if (name.isEmpty) return;
 
                       try {
-                        final success =
-                            await _firestoreService.createWasteCategory(
-                          name: name,
-                          kind: kind,
-                          description: descriptionController.text.trim(),
-                          category: kind == 'jenis' ? selectedCategory : '',
-                          points: kind == 'jenis'
-                              ? _asInt(pointsController.text.trim())
-                              : 0,
-                        );
+                        final success = await _firestoreService
+                            .createWasteCategory(
+                              name: name,
+                              kind: kind,
+                              description: descriptionController.text.trim(),
+                              category: kind == 'jenis' ? selectedCategory : '',
+                              points: kind == 'jenis'
+                                  ? _asInt(pointsController.text.trim())
+                                  : 0,
+                            );
 
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
@@ -425,8 +447,9 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
                                   ? '$selectedTab berhasil ditambahkan'
                                   : 'Gagal menambahkan $selectedTab',
                             ),
-                            backgroundColor:
-                                success ? Colors.green : Colors.red,
+                            backgroundColor: success
+                                ? Colors.green
+                                : Colors.red,
                           ),
                         );
                       } catch (e) {
@@ -604,7 +627,7 @@ class _AdminWasteDataScreenState extends State<AdminWasteDataScreen>
     final key = label.toLowerCase().trim();
     return TFLiteService.wasteCategoryMap[key] ??
         TFLiteService.wasteCategoryMap[key.replaceAll(' ', '_')] ??
-        'Anorganic';
+        'Anorganik';
   }
 
   int _pointsForTfliteLabel(String label) {

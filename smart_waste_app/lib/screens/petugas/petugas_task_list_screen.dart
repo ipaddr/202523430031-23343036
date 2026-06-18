@@ -148,9 +148,15 @@ class _PetugasTaskListScreenState extends State<PetugasTaskListScreen>
                             );
                           }
 
+                          if (snapshot.hasError) {
+                            return _buildEmptyState(
+                              'Gagal memuat tugas:\n${snapshot.error}',
+                            );
+                          }
+
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
                             return _buildEmptyState(
-                              'Tidak ada tugas sesuai jadwal aktif',
+                              'Belum ada tugas yang diberikan',
                             );
                           }
 

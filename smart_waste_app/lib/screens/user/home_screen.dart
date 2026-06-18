@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../../services/firestore_service.dart';
+import '../../services/tflite_service.dart';
+import '../../utils/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/theme_colors.dart';
 import 'schedule_screen.dart';
@@ -31,7 +36,8 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      resizeToAvoidBottomInset: false,
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -44,8 +50,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
               onTap: (index) => setState(() => _currentIndex = index),
@@ -134,8 +141,13 @@ class _BerandaScreen extends StatefulWidget {
 }
 
 class __BerandaScreenState extends State<_BerandaScreen> {
+  final _firestoreService = FirestoreService();
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final userName = authProvider.user?.name ?? 'User';
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -169,9 +181,9 @@ class __BerandaScreenState extends State<_BerandaScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Hai, Andi! 👋',
-                              style: TextStyle(
+                            Text(
+                              'Hai, $userName! 👋',
+                              style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.white,
@@ -223,106 +235,270 @@ class __BerandaScreenState extends State<_BerandaScreen> {
                 ),
               ),
 
-              // Next Pickup Card with better styling
+              // Next Pickup Card with real data from Firestore
               Padding(
                 padding: const EdgeInsets.all(AppPadding.lg),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.secondary, Color(0xFFFFA500)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.secondary.withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _firestoreService.getSchedulesStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Container(
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.secondary,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final schedules = snapshot.data ?? [];
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+
+                    // Find the next upcoming schedule
+                    Map<String, dynamic>? nextSchedule;
+                    DateTime? nextDate;
+                    for (final schedule in schedules) {
+                      final status = (schedule['status'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      if (status != 'aktif' &&
+                          status != 'active' &&
+                          status.isNotEmpty) {
+                        continue;
+                      }
+
+                      final rawDate = schedule['date'];
+                      DateTime? scheduleDate;
+                      if (rawDate is Timestamp) {
+                        scheduleDate = rawDate.toDate();
+                      } else if (rawDate is DateTime) {
+                        scheduleDate = rawDate;
+                      }
+                      if (scheduleDate == null) continue;
+
+                      final dateOnly = DateTime(
+                        scheduleDate.year,
+                        scheduleDate.month,
+                        scheduleDate.day,
+                      );
+                      if (dateOnly.isBefore(today)) continue;
+
+                      if (nextDate == null || dateOnly.isBefore(nextDate)) {
+                        nextDate = dateOnly;
+                        nextSchedule = schedule;
+                      }
+                    }
+
+                    if (nextSchedule == null) {
+                      return Container(
+                        padding: const EdgeInsets.all(AppPadding.lg),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.secondary, Color(0xFFFFA500)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.secondary.withValues(alpha: 0.3),
+                              blurRadius: 15,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.event_busy,
+                              color: Color(0xFF222222),
+                              size: 40,
+                            ),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Jadwal Terdekat',
+                                    style: TextStyle(
+                                      color: Color(0xFF333333),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Belum ada jadwal',
+                                    style: TextStyle(
+                                      color: Color(0xFF222222),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final category =
+                        (nextSchedule['category'] ??
+                                nextSchedule['area'] ??
+                                'Sampah')
+                            .toString();
+                    final time =
+                        (nextSchedule['time'] ??
+                                '${nextSchedule['start_time'] ?? ''} - ${nextSchedule['end_time'] ?? ''}')
+                            .toString();
+                    final route =
+                        (nextSchedule['route'] ?? nextSchedule['zone'] ?? '')
+                            .toString();
+
+                    // Calculate days until schedule
+                    final daysUntil = nextDate!.difference(today).inDays;
+                    String dateText;
+                    if (daysUntil == 0) {
+                      dateText = 'Hari ini, ${_formatDateIndo(nextDate)}';
+                    } else if (daysUntil == 1) {
+                      dateText = 'Besok, ${_formatDateIndo(nextDate)}';
+                    } else {
+                      dateText = _formatDateIndo(nextDate);
+                    }
+
+                    // Progress based on days until
+                    final progress = daysUntil == 0
+                        ? 0.9
+                        : (1.0 - (daysUntil / 7).clamp(0.0, 1.0));
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.secondary, Color(0xFFFFA500)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.secondary.withValues(alpha: 0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(AppPadding.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      padding: const EdgeInsets.all(AppPadding.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Jadwal Terdekat',
-                                style: TextStyle(
-                                  color: Color(0xFF333333),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Jadwal Terdekat',
+                                      style: TextStyle(
+                                        color: Color(0xFF333333),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Sampah $category',
+                                      style: const TextStyle(
+                                        color: Color(0xFF222222),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      dateText,
+                                      style: TextStyle(
+                                        color: const Color(
+                                          0xFF333333,
+                                        ).withValues(alpha: 0.8),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (time.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        time,
+                                        style: TextStyle(
+                                          color: const Color(
+                                            0xFF333333,
+                                          ).withValues(alpha: 0.8),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                    if (route.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        route,
+                                        style: TextStyle(
+                                          color: const Color(
+                                            0xFF333333,
+                                          ).withValues(alpha: 0.6),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Sampah Anorganik',
-                                style: TextStyle(
+                              Container(
+                                width: 90,
+                                height: 90,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.lg,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.recycling,
                                   color: Color(0xFF222222),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Rebo, 22 Mei 2024',
-                                style: TextStyle(
-                                  color: const Color(
-                                    0xFF333333,
-                                  ).withValues(alpha: 0.8),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '07:00 - 09:00',
-                                style: TextStyle(
-                                  color: const Color(
-                                    0xFF333333,
-                                  ).withValues(alpha: 0.8),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  size: 50,
                                 ),
                               ),
                             ],
                           ),
-                          Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(AppRadius.lg),
-                            ),
-                            child: const Icon(
-                              Icons.recycling,
-                              color: Color(0xFF222222),
-                              size: 50,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 6,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.3,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white.withValues(alpha: 0.8),
+                              ),
+                              borderRadius: BorderRadius.circular(3),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: LinearProgressIndicator(
-                          value: 0.6,
-                          minHeight: 6,
-                          backgroundColor: Colors.white.withValues(alpha: 0.3),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white.withValues(alpha: 0.8),
-                          ),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
 
@@ -373,12 +549,29 @@ class __BerandaScreenState extends State<_BerandaScreen> {
                           icon: Icons.qr_code_2,
                           label: 'Scan Sampah',
                           color: ThemeColors.getStatusPendingColor(context),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ScanWasteScreen(),
-                            ),
-                          ),
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ScanWasteScreen(),
+                              ),
+                            );
+                            // If user confirmed a scan result, navigate to request pickup
+                            if (result != null && context.mounted) {
+                              final tflite = TFLiteService();
+                              final category = tflite.getWasteCategory(
+                                result.label?.toString() ?? '',
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RequestPickupScreen(
+                                    initialWasteType: category,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                         _MenuCard(
                           icon: Icons.shopping_cart,
@@ -523,6 +716,35 @@ class __BerandaScreenState extends State<_BerandaScreen> {
         ),
       ),
     );
+  }
+
+  String _formatDateIndo(DateTime date) {
+    const hari = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
+    const bulan = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    final hariStr = hari[date.weekday - 1];
+    final bulanStr = bulan[date.month - 1];
+    return '$hariStr, ${date.day} $bulanStr ${date.year}';
   }
 }
 

@@ -16,8 +16,6 @@ class _AdminOfficersManagementScreenState
   late AnimationController _animationController;
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
-  String selectedRole = 'Semua';
-  final List<String> roles = ['Semua', 'Petugas', 'Admin'];
 
   @override
   void initState() {
@@ -37,46 +35,46 @@ class _AdminOfficersManagementScreenState
   }
 
   Stream<List<Map<String, dynamic>>> _getOfficersStream() {
-    return FirebaseFirestore.instance.collection('officers').snapshots().map((
-      snapshot,
-    ) {
-      var officers = snapshot.docs.map((doc) {
-        var data = doc.data();
-        return {
-          'id': doc.id,
-          'name': data['name'] ?? 'Unknown',
-          'email': data['email'] ?? '',
-          'phone': data['phone'] ?? '',
-          'role': data['role'] ?? 'Petugas',
-          'status': data['status'] ?? 'Aktif',
-          'assignedRequests': data['assignedRequests'] ?? 0,
-          'completedRequests': data['completedRequests'] ?? 0,
-          'createdAt': data['createdAt'],
-        };
-      }).toList();
+    return FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'petugas')
+        .snapshots()
+        .map((snapshot) {
+          var officers = snapshot.docs.map((doc) {
+            var data = doc.data();
+            return {
+              'id': doc.id,
+              'name': data['name'] ?? 'Unknown',
+              'email': data['email'] ?? '',
+              'phone': data['phone'] ?? '',
+              'role': data['role'] ?? 'petugas',
+              'status': data['status'] ?? 'Aktif',
+              'assignedRequests': data['assignedRequests'] ?? 0,
+              'completedRequests': data['completedRequests'] ?? 0,
+              'total_tasks': data['total_tasks'] ?? 0,
+              'completed_tasks': data['completed_tasks'] ?? 0,
+              'average_rating': data['average_rating'] ?? 0.0,
+              'createdAt': data['createdAt'],
+            };
+          }).toList();
 
-      // Filter by role
-      if (selectedRole != 'Semua') {
-        officers = officers.where((o) => o['role'] == selectedRole).toList();
-      }
+          // Search
+          if (searchQuery.isNotEmpty) {
+            officers = officers
+                .where(
+                  (o) =>
+                      o['name'].toString().toLowerCase().contains(
+                        searchQuery.toLowerCase(),
+                      ) ||
+                      o['email'].toString().toLowerCase().contains(
+                        searchQuery.toLowerCase(),
+                      ),
+                )
+                .toList();
+          }
 
-      // Search
-      if (searchQuery.isNotEmpty) {
-        officers = officers
-            .where(
-              (o) =>
-                  o['name'].toString().toLowerCase().contains(
-                    searchQuery.toLowerCase(),
-                  ) ||
-                  o['email'].toString().toLowerCase().contains(
-                    searchQuery.toLowerCase(),
-                  ),
-            )
-            .toList();
-      }
-
-      return officers;
-    });
+          return officers;
+        });
   }
 
   @override
@@ -124,7 +122,7 @@ class _AdminOfficersManagementScreenState
                       ),
                     ),
                     const Text(
-                      'Kelola Admin & Petugas',
+                      'Kelola Admin',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -161,7 +159,7 @@ class _AdminOfficersManagementScreenState
                       controller: searchController,
                       onChanged: (value) => setState(() => searchQuery = value),
                       decoration: InputDecoration(
-                        hintText: 'Cari admin/petugas...',
+                        hintText: 'Cari admin...',
                         prefixIcon: const Icon(
                           Icons.search,
                           color: AppColors.primary,
@@ -176,51 +174,6 @@ class _AdminOfficersManagementScreenState
                           horizontal: AppPadding.lg,
                           vertical: AppPadding.md,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Filter Chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: roles.map((role) {
-                          bool isSelected = selectedRole == role;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: GestureDetector(
-                              onTap: () => setState(() => selectedRole = role),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.primary
-                                        : AppColors.grey.withValues(alpha: 0.3),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  role,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? AppColors.white
-                                        : AppColors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -251,7 +204,9 @@ class _AdminOfficersManagementScreenState
                                 Text(
                                   'Tidak ada admin/petugas',
                                   style: TextStyle(
-                                    color: AppColors.grey.withValues(alpha: 0.7),
+                                    color: AppColors.grey.withValues(
+                                      alpha: 0.7,
+                                    ),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -309,7 +264,10 @@ class _AdminOfficersManagementScreenState
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.grey.withValues(alpha: 0.2), width: 1),
+          border: Border.all(
+            color: AppColors.grey.withValues(alpha: 0.2),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -521,7 +479,7 @@ class _AdminOfficersManagementScreenState
   void _updateOfficerStatus(String officerId, String currentStatus) {
     final newStatus = currentStatus == 'Aktif' ? 'Nonaktif' : 'Aktif';
     FirebaseFirestore.instance
-        .collection('officers')
+        .collection('users')
         .doc(officerId)
         .update({
           'status': newStatus,
@@ -544,7 +502,7 @@ class _AdminOfficersManagementScreenState
 
   void _deleteOfficer(String officerId) {
     FirebaseFirestore.instance
-        .collection('officers')
+        .collection('users')
         .doc(officerId)
         .delete()
         .then((_) {
@@ -563,87 +521,33 @@ class _AdminOfficersManagementScreenState
   }
 
   void _showAddOfficerDialog() {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final phoneController = TextEditingController();
-    String selectedRole = 'Petugas';
-
+    // Penambahan petugas dilakukan melalui halaman Kelola Pengguna
+    // menggunakan FirebaseAuthService.createUserByAdmin dengan role 'petugas'
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Tambah Admin/Petugas'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nama'),
-                ),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(labelText: 'Telepon'),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedRole,
-                  onChanged: (value) => selectedRole = value ?? 'Petugas',
-                  items: const [
-                    DropdownMenuItem(value: 'Petugas', child: Text('Petugas')),
-                    DropdownMenuItem(value: 'Admin', child: Text('Admin')),
-                  ],
-                  decoration: const InputDecoration(labelText: 'Role'),
-                ),
-              ],
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Tambah Petugas'),
+        content: const Text(
+          'Untuk menambah petugas baru, gunakan menu "Kelola Pengguna" dan pilih role "Petugas" saat membuat akun.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    emailController.text.isNotEmpty) {
-                  FirebaseFirestore.instance
-                      .collection('officers')
-                      .add({
-                        'name': nameController.text,
-                        'email': emailController.text,
-                        'phone': phoneController.text,
-                        'role': selectedRole,
-                        'status': 'Aktif',
-                        'assignedRequests': 0,
-                        'completedRequests': 0,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      })
-                      .then((_) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Admin/Petugas berhasil ditambahkan'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      })
-                      .catchError((e) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                      });
-                }
-              },
-              child: const Text('Tambah'),
-            ),
-          ],
-        );
-      },
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/admin_users');
+            },
+            child: const Text('Kelola Pengguna'),
+          ),
+        ],
+      ),
     );
   }
 }
